@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
         }
         else{
             std::thread t1(&Server::Receive, client_socket);
-            t1.detach();
+            t1.join();
         }
     }
 

@@ -2,56 +2,47 @@
 
 Requests::Requests(std::istringstream& data) {
     data >> Request;
-    setIP();
-    setPHONE();
-    setTYPE();
 }
 
-void Requests::Process() {
+Json::Value Requests::Process() {
     std::cout << Request << std::endl;
-    switch (getType(TYPE)) {
+    std::istringstream MES;
+    Json::Value RESPONSE;
+
+    switch (getType(Request)) {
         case UPDATE: {
-            std::cout << "1";
-            DB::Update(PHONE, IP);
+            DB::Update(Request["PHONE"].asString(), Request["IP"].asString()) >> RESPONSE;
             break;
         }
         case GET: {
-            // Handle GET request
+            DB::Get(Request["PHONE"].asString()) >> RESPONSE;
             break;
         }
         case DELETE: {
-            DB::Delete(PHONE);
+            DB::Delete(Request["PHONE"].asString()) >> RESPONSE;
             break;
         }
         case ALL_DATA: {
-            std::cout << "2";
             DB::AllData();
             break;
         }
         default: {
-            std::cerr << "Invalid request type";
-            return;
+            RESPONSE = "Invalid request type";
+            return "";
         }
     }
+    return RESPONSE;
 }
 
-Requests::TYPES Requests::getType(const std::string& STR) {
-    if (STR == "UPDATE") return UPDATE;
-    if (STR == "GET") return GET;
-    if (STR == "DELETE") return DELETE;
-    if (STR == "ALL_DATA") return ALL_DATA;
+Requests::TYPES Requests::getType(const Json::Value& STR) {
+    std::string types = STR["TYPE"].asString();
+
+    if (types == "UPDATE") return UPDATE;
+    if (types == "GET") return GET;
+    if (types == "DELETE") return DELETE;
+    if (types == "ALL_DATA") return ALL_DATA;
 
     throw std::invalid_argument("Invalid request type");
 }
 
-void Requests::setIP() {
-    IP = Request["IP"].asString();
-}
-
-void Requests::setPHONE() {
-    PHONE = Request["PHONE"].asString();
-}
-
-void Requests::setTYPE() {
-    TYPE = Request["TYPE"].asString();
-}
+Requests::~Requests() = default;

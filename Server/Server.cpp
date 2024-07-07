@@ -6,13 +6,11 @@
 
 Server::Server(const int PORT) {
     try {
-        // Build socket
         Server::SOCKET = socket(AF_INET, SOCK_STREAM, 0);
         if (SOCKET == -1) {
             throw std::system_error(errno, std::generic_category());
         }
 
-        // Build socket address binding it to specified port
         this->SERVER_ADDR.sin_family = AF_INET;
         this->SERVER_ADDR.sin_addr.s_addr = INADDR_ANY;
         this->SERVER_ADDR.sin_port = htons(PORT);
@@ -22,8 +20,10 @@ Server::Server(const int PORT) {
         }
     }
     catch (std::system_error& error) {
-        std::cout << "Caught system error: \n"
-                  << error.what();
+        std::cout << "Caught system error: "
+                  << error.code()
+                  << error.what()
+                  << errno;
     }
 }
 
@@ -46,9 +46,17 @@ void Server::Receive(int client_socket) {
 
     buff[n] = '\0';
     std::istringstream stream(buff);
-    auto request = new Requests(stream);
+    auto request = Requests(stream);
+    Json::FastWriter WRITER;
+    auto RESPONSE = WRITER.write(request.Process());
 
-    request->Process();
+    std::strncpy(buff, RESPONSE.c_str(), sizeof(buff) - 1);
+    n = write(client_socket, buff, sizeof(buff)-1);
+
+    if(n < 0){
+        std::cerr << "Error sending response: " << strerror(errno);
+        return;
+    }
 
     close(client_socket);
 }
