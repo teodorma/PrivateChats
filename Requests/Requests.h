@@ -9,16 +9,17 @@
 #include <iostream>
 #include "../DB/DB.h"
 
-class Requests : public Json::FastWriter{
+class Requests : Encryption{
 private:
     Json::Value Request;
-
 public:
-    enum TYPES{UPDATE, GET, DELETE, ALL_DATA};
+    enum TYPES{UPDATE, GET_KEY, DELETE, ALL_DATA};
     explicit Requests(std::istringstream & data);
-    Json::Value Process();
+    std::string Process();
 
     static TYPES getType(const Json::Value& STR);
-    ~Requests() override;
+    static bool isKeyRequest(const std::string &s);
+
+    ~Requests();
 };
 #endif //SERVER_REQUESTS_H

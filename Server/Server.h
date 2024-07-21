@@ -8,6 +8,7 @@
 #include <netinet/in.h>
 #include <csignal>
 #include "../Requests/Requests.h"
+#include "../DB/Encryption.h"
 
 class Server {
 private:

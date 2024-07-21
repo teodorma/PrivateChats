@@ -20,10 +20,10 @@ Server::Server(const int PORT) {
         }
     }
     catch (std::system_error& error) {
-        std::cout << "Caught system error: "
-                  << error.code()
-                  << error.what()
-                  << errno;
+        std::cout << "Caught system error "
+                  << error.code() << "\n"
+                  << error.what() << "\n"
+                  << errno << "\n";
     }
 }
 
@@ -36,7 +36,7 @@ Server::Server(const int PORT) {
 }
 
 void Server::Receive(int client_socket) {
-    char buff[256] = {0};
+    char buff[4096] = {0};
     auto n = recv(client_socket, buff, sizeof(buff) - 1, 0);
 
     if(n < 0){
@@ -47,11 +47,12 @@ void Server::Receive(int client_socket) {
     buff[n] = '\0';
     std::istringstream stream(buff);
     auto request = Requests(stream);
-    Json::FastWriter WRITER;
-    auto RESPONSE = WRITER.write(request.Process());
+    auto RESPONSE = request.Process();
 
-    std::strncpy(buff, RESPONSE.c_str(), sizeof(buff) - 1);
-    n = write(client_socket, buff, sizeof(buff)-1);
+
+    char response_buff[RESPONSE.size()];
+    std::strncpy(response_buff, RESPONSE.c_str(), sizeof(response_buff) - 1);
+    n = write(client_socket, response_buff, sizeof(response_buff)-1);
 
     if(n < 0){
         std::cerr << "Error sending response: " << strerror(errno);

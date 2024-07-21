@@ -13,6 +13,7 @@ int main(int argc, char* argv[]) {
 
     int PORT_NO = std::stoi(argv[1]);
     Server server(PORT_NO);
+
     DB DataBase;
 
     if (listen(server.get_SOCKET(), 128) == -1) {

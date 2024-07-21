@@ -12,37 +12,38 @@
 #include <queue>
 #include <utility>
 #include <json/json.h>
+#include "sqlite3.h"
+#include "Encryption.h"
 
-class DB{
+class DB : Encryption{
 private:
-    struct Client {
-
-        std::string IP;
-        std::queue<std::string> MESSAGES;
-
-        Client() = default;
-        explicit Client(std::string IP) : IP(std::move(IP)) {}
-
-        ~Client();
-
-        [[nodiscard]] std::string toString() const {
-            return "IP: " + IP + ", Messages Count: " + std::to_string(MESSAGES.size());
-        }
-    };
-
-    static std::unordered_map<std::string, Client> DataBase;
+    static mpz_class P;
+    static mpz_class Q;
+    static mpz_class N;
+    static mpz_class D;
+    static mpz_class E;
+    static int KEY_LENGTH;
+    static sqlite3 *DataBase;
+    std::string dbName;
     static std::mutex db_mutex;
 
-    static bool Validate(const std::string& PHONE);
     static std::istringstream Update(const std::string& PHONE, const std::string& IP);
     static std::istringstream Delete(const std::string& PHONE);
-    static std::istringstream Get(const std::string& PHONE);
+    static std::istringstream Get_KEY();
     static void AllData();
 
 public:
+    explicit DB();
+    DB(const DB &obj) = delete;
     ~DB();
 
     friend class Requests;
+    static std::string PASSWORD;
+    static void CreateTables();
+    static bool isDatabaseInitiated();
+
+    static void setKeys();
+    static void setPassword();
 };
 
 #endif //SERVER_DB_H
