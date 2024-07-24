@@ -25,7 +25,9 @@ add_executable(Server
         DB/DB.cpp
         Requests/Requests.cpp
         Server/Server.cpp
-        DB/Encryption.cpp
+        DB/Encryption/Encryption.cpp
+        DB/Operations/Admin.cpp
+        DB/Operations/Client.cpp
 )
 
 # Link libraries
