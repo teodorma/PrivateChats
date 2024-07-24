@@ -4,6 +4,12 @@
 #include <gmpxx.h>
 #include <vector>
 #include <string>
+#include <random>
+#include <sstream>
+#include <iostream>
+#include <openssl/evp.h>
+#include <openssl/buffer.h>
+#include <openssl/sha.h>
 
 class Encryption {
 public:
@@ -17,9 +23,8 @@ public:
     static std::string encrypt(const std::string& message, const mpz_class& e, const mpz_class& n);
     static std::string decrypt(const std::string& ciphertext, const mpz_class& d, const mpz_class& n);
     static mpz_class calculatePrivateExponent(const mpz_class& p, const mpz_class& q, const mpz_class& e);
-    ~Encryption();
-
     static std::string sha256(const std::string &str);
+    ~Encryption();
 };
 
 #endif // ENCRYPTION_H

@@ -13,7 +13,7 @@ class Requests : Encryption{
 private:
     Json::Value Request;
 public:
-    enum TYPES{UPDATE, GET_KEY, DELETE, ALL_DATA};
+    enum TYPES{UPDATE, GET_KEY, DELETE, ALL_DATA, PURGE};
     explicit Requests(std::istringstream & data);
     std::string Process();
 

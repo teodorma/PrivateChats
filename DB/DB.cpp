@@ -3,7 +3,7 @@
 std::mutex DB::db_mutex;
 int DB::KEY_LENGTH = 512;
 std::string DB::PASSWORD;
-sqlite3 *DB::DataBase;
+sqlite3 *DB::DataBase = nullptr;
 mpz_class DB::P;
 mpz_class DB::Q;
 mpz_class DB::N;
@@ -11,98 +11,7 @@ mpz_class DB::D;
 mpz_class DB::E;
 
 
-std::istringstream DB::Update(const std::string& PHONE, const std::string& IP) {
-    std::lock_guard<std::mutex> guard(db_mutex);
-
-    std::string sql = "INSERT INTO client (phone_number, name, ip) VALUES (?, ?, ?);";
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(DataBase, sql.c_str(), -1, &stmt, nullptr);
-
-    if (rc != SQLITE_OK) {
-        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(DataBase) << std::endl;
-        return std::istringstream(R"({"RESPONSE":"FAILURE"})");
-    }
-
-    sqlite3_bind_text(stmt, 1, PHONE.c_str(), -1, SQLITE_TRANSIENT);
-    sqlite3_bind_text(stmt, 2, PHONE.c_str(), -1, SQLITE_TRANSIENT);  // Using PHONE as the name for now
-    sqlite3_bind_text(stmt, 3, IP.c_str(), -1, SQLITE_TRANSIENT);
-
-    rc = sqlite3_step(stmt);
-    if (rc != SQLITE_DONE) {
-        std::cerr << "Failed to insert data: " << sqlite3_errmsg(DataBase) << std::endl;
-        sqlite3_finalize(stmt);
-        return std::istringstream(R"({"RESPONSE":"FAILURE"})");
-    }
-
-    sqlite3_finalize(stmt);
-    return std::istringstream(R"({"RESPONSE":"SUCCESS"})");
-}
-
-std::istringstream DB::Delete(const std::string& PHONE) {
-    std::lock_guard<std::mutex> guard(db_mutex);
-
-    std::string sql = "DELETE FROM client WHERE phone_number = ?;";
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(DataBase, sql.c_str(), -1, &stmt, nullptr);
-
-    if (rc != SQLITE_OK) {
-        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(DataBase) << std::endl;
-        return std::istringstream(R"({"RESPONSE":"FAILURE"})");
-    }
-
-    sqlite3_bind_text(stmt, 1, PHONE.c_str(), -1, SQLITE_TRANSIENT);
-
-    rc = sqlite3_step(stmt);
-    if (rc != SQLITE_DONE) {
-        std::cerr << "Failed to delete data: " << sqlite3_errmsg(DataBase) << std::endl;
-        sqlite3_finalize(stmt);
-        return std::istringstream(R"({"RESPONSE":"FAILURE"})");
-    }
-
-    sqlite3_finalize(stmt);
-
-    std::cout << "Success!" << std::endl;
-    return std::istringstream(R"({"RESPONSE":"SUCCESS"})");
-}
-
-
-std::istringstream DB::Get_KEY() {
-    std::lock_guard<std::mutex> guard(db_mutex);
-
-    std::string response_str(R"({"RESPONSE":"SUCCESS", "KEY":")" + N.get_str() + R"("})");
-
-    return std::istringstream(response_str);
-}
-
-void DB::AllData() {
-    std::lock_guard<std::mutex> guard(db_mutex);
-
-    const char* sql = "SELECT phone_number, name, ip FROM client;";
-    sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(DataBase, sql, -1, &stmt, nullptr);
-
-    if (rc != SQLITE_OK) {
-        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(DataBase) << std::endl;
-        return;
-    }
-
-    std::cout << "Clients in the database:" << std::endl;
-    while ((rc = sqlite3_step(stmt)) == SQLITE_ROW) {
-        const unsigned char* phone_number = sqlite3_column_text(stmt, 0);
-        const unsigned char* name = sqlite3_column_text(stmt, 1);
-        const unsigned char* ip = sqlite3_column_text(stmt, 2);
-
-        std::cout << "Phone Number: " << phone_number << ", Name: " << name << ", IP: " << ip << std::endl;
-    }
-
-    if (rc != SQLITE_DONE) {
-        std::cerr << "Failed to fetch data: " << sqlite3_errmsg(DataBase) << std::endl;
-    }
-
-    sqlite3_finalize(stmt);
-}
-
-void DB::CreateTables() {
+void DB::createTables() {
     const char* sqlClient = R"(
         CREATE TABLE IF NOT EXISTS client (
             phone_number TEXT PRIMARY KEY NOT NULL,
@@ -145,13 +54,38 @@ void DB::CreateTables() {
 }
 
 
+
 bool DB::isDatabaseInitiated() {
+    // Check if the database file exists
+    std::ifstream file(DATABASE_NAME);
+    if (!file) {
+        return false;
+    }
+
+    // Open the database
+    int rc = sqlite3_open(DATABASE_NAME, &DataBase);
+    if (rc != SQLITE_OK) {
+        std::cerr << "Cannot open database: " << sqlite3_errmsg(DataBase) << std::endl;
+        return false;
+    }
+
+    // Set the key for SQLCipher
+    std::string keyPragma = "PRAGMA key = '" + PASSWORD + "';";
+    rc = sqlite3_exec(DataBase, keyPragma.c_str(), nullptr, nullptr, nullptr);
+    if (rc != SQLITE_OK) {
+        std::cerr << "Failed to set key: " << sqlite3_errmsg(DataBase) << std::endl;
+        sqlite3_close(DataBase);
+        return false;
+    }
+
+    // Prepare the SQL statement to check for the 'client' table
     const char* sql = "SELECT name FROM sqlite_master WHERE type='table' AND name='client';";
     sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(DataBase, sql, -1, &stmt, nullptr);
+    rc = sqlite3_prepare_v2(DataBase, sql, -1, &stmt, nullptr);
 
     if (rc != SQLITE_OK) {
-        std::cout << "New instance" << std::endl;
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(DataBase) << std::endl;
+        sqlite3_close(DataBase);
         return false;
     }
 
@@ -159,8 +93,13 @@ bool DB::isDatabaseInitiated() {
     bool tableExists = (rc == SQLITE_ROW);
 
     sqlite3_finalize(stmt);
+    sqlite3_close(DataBase);
+
     return tableExists;
 }
+
+
+
 
 void DB::setKeys() {
     std::string len;
@@ -233,11 +172,54 @@ void DB::setKeys() {
 }
 
 
+
+bool DB::passCheck(const std::string& password){
+    if(password.length() < 8) return false;
+
+    const char num[] = "1234567890";
+    const char caps[] = "QWERTYUIOPASDFGHJKLZXCVBNM";
+    const char spec[] = "~!@#$%^&*(){}|<>?:";
+
+    bool special;
+    bool capt;
+    bool number;
+
+    for(auto chr : password){
+        if(strchr(num, chr)) number = true;
+        if(strchr(caps, chr)) capt = true;
+        if(strchr(spec, chr)) special = true;
+        if(number && special && capt) return true;
+    }
+    return false;
+}
+
+
+void DB::createDatabase() {
+    int rc = sqlite3_open(DATABASE_NAME, &DataBase);
+    if (rc != SQLITE_OK) {
+        std::cerr << "Can't open database: " << sqlite3_errmsg(DataBase) << std::endl;
+    } else {
+        std::cout << "Opened database successfully" << std::endl;
+    }
+
+    std::string keyCommand = "PRAGMA key = '" + PASSWORD + "';";
+    char* errorMessage = nullptr;
+    rc = sqlite3_exec(DataBase, keyCommand.c_str(), nullptr, nullptr, &errorMessage);
+    if (rc != SQLITE_OK) {
+        std::cerr << "Failed to set encryption key: " << errorMessage << std::endl;
+        sqlite3_free(errorMessage);
+    }
+}
+
 void DB::setPassword(){
     std::string password1, password2;
     do {
         std::cout << "Enter a strong password: ";
         std::cin >> password1;
+        if(!passCheck(password1)){
+            std::cout << "Password is too weak\n";
+            continue;
+        }
         std::cout << "Retype the password: ";
         std::cin >> password2;
 
@@ -254,22 +236,89 @@ void DB::setPassword(){
     std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 }
 
+
+bool DB::setRSAParameters() {
+    int rc;
+    // Prepare SQL query
+    sqlite3_stmt* stmt;
+    const char* sql = "SELECT P, Q, D, N, E FROM admin LIMIT 1;";
+    rc = sqlite3_prepare_v2(DataBase, sql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(DataBase) << std::endl;
+        sqlite3_close(DataBase);
+        return false;
+    }
+
+    // Execute query and retrieve the values
+    rc = sqlite3_step(stmt);
+    if (rc == SQLITE_ROW) {
+        P.set_str(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 0)), 10);
+        Q.set_str(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1)), 10);
+        D.set_str(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2)), 10);
+        N.set_str(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 3)), 10);
+        E.set_str(reinterpret_cast<const char*>(sqlite3_column_text(stmt, 4)), 10);
+    } else {
+        std::cerr << "No data found: " << sqlite3_errmsg(DataBase) << std::endl;
+        sqlite3_finalize(stmt);
+        sqlite3_close(DataBase);
+        return false;
+    }
+    std::cout << "P: " << P.get_str()
+              << "\nQ: " << Q.get_str()
+              << "\nN: " << N.get_str()
+              << "\nD: " << D.get_str() << std::endl;
+
+    // Clean up
+    sqlite3_finalize(stmt);
+    return true;
+}
+
 DB::DB() {
     if (!isDatabaseInitiated()) {
-        std::cout << "Database name: ";
-        std::cin >> DB::dbName;
-
-        int rc = sqlite3_open(dbName.c_str(), &DataBase);
-        if (rc) {
+        setPassword();
+        createDatabase();
+        createTables();
+        setKeys();
+    } else {
+        int rc = sqlite3_open(DATABASE_NAME, &DataBase);
+        if (rc != SQLITE_OK) {
             std::cerr << "Can't open database: " << sqlite3_errmsg(DataBase) << std::endl;
         } else {
             std::cout << "Opened database successfully" << std::endl;
+            std::cout << "Enter password for database: ";
+            std::cin >> PASSWORD;
+            std::string keyCommand = "PRAGMA key = '" + PASSWORD + "';";
+            char* errorMessage = nullptr;
+            rc = sqlite3_exec(DataBase, keyCommand.c_str(), nullptr, nullptr, &errorMessage);
+            if (rc != SQLITE_OK) {
+                std::cerr << "Failed to set encryption key: " << errorMessage << std::endl;
+                sqlite3_free(errorMessage);
+            } else {
+                // Verify if the database is opened successfully with the password
+                const char* sql = "PRAGMA user_version;";
+                sqlite3_stmt* stmt;
+                rc = sqlite3_prepare_v2(DataBase, sql, -1, &stmt, nullptr);
+
+                if (rc != SQLITE_OK) {
+                    std::cerr << "Failed to prepare verification statement: " << sqlite3_errmsg(DataBase) << std::endl;
+                } else {
+                    rc = sqlite3_step(stmt);
+                    if (rc != SQLITE_ROW && rc != SQLITE_DONE) {
+                        std::cerr << "Database verification failed: " << sqlite3_errmsg(DataBase) << std::endl;
+                    } else {
+                        std::cout << "Database opened successfully with the provided password." << std::endl;
+                    }
+                    sqlite3_finalize(stmt);
+                }
+            }
+            setRSAParameters();
         }
-        CreateTables();
-        setPassword();
-        setKeys();
-    }
-    else{
     }
 }
-DB::~DB() = default;
+
+
+DB::~DB() {
+    if (DataBase) {
+        sqlite3_close(DataBase);
+    }
+}
