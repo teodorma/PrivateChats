@@ -41,7 +41,7 @@ install_jsoncpp() {
         "ubuntu"|"debian")
             echo "Detected $1. Installing jsoncpp-devel using apt."
             sudo apt update
-            sudo apt install -y jsoncpp
+            sudo apt install -y libjsoncpp-dev
             ;;
         "fedora")
             echo "Detected Fedora. Installing jsoncpp-devel using dnf."
@@ -66,6 +66,37 @@ install_jsoncpp() {
     esac
 }
 
+# Function to install sqlite3 using the appropriate package manager
+install_sqlite3() {
+    case "$1" in
+        "ubuntu"|"debian")
+            echo "Detected $1. Installing sqlite3 using apt."
+            sudo apt update
+            sudo apt install -y sqlite3 libsqlite3-dev
+            ;;
+        "fedora")
+            echo "Detected Fedora. Installing sqlite3 using dnf."
+            sudo dnf install -y sqlite sqlite-devel
+            ;;
+        "centos"|"rhel"|"rocky"|"almalinux")
+            echo "Detected $1. Installing sqlite3 using yum."
+            sudo yum install -y sqlite sqlite-devel
+            ;;
+        "opensuse"|"suse")
+            echo "Detected $1. Installing sqlite3 using zypper."
+            sudo zypper install -y sqlite3 sqlite3-devel
+            ;;
+        "arch"|"manjaro")
+            echo "Detected $1. Installing sqlite3 using pacman."
+            sudo pacman -Syu sqlite
+            ;;
+        *)
+            echo "Unsupported OS: $1. Please install sqlite3 manually."
+            exit 1
+            ;;
+    esac
+}
+
 # Detect the OS
 if [ -f /etc/os-release ]; then
     . /etc/os-release
@@ -77,6 +108,9 @@ fi
 
 # Install OpenSSL
 install_openssl "$OS_NAME"
+
+# Install sqlite3
+install_sqlite3 "$OS_NAME"
 
 # Build sqlcipher
 ./configure --enable-tempstore=yes CFLAGS="-DSQLITE_HAS_CODEC" LDFLAGS="-lcrypto"
