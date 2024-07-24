@@ -97,6 +97,37 @@ install_sqlite3() {
     esac
 }
 
+# Function to install gmp-devel using the appropriate package manager
+install_gmp() {
+    case "$1" in
+        "ubuntu"|"debian")
+            echo "Detected $1. Installing gmp using apt."
+            sudo apt update
+            sudo apt install -y libgmp-dev
+            ;;
+        "fedora")
+            echo "Detected Fedora. Installing gmp-devel using dnf."
+            sudo dnf install -y gmp-devel
+            ;;
+        "centos"|"rhel"|"rocky"|"almalinux")
+            echo "Detected $1. Installing gmp-devel using yum."
+            sudo yum install -y gmp-devel
+            ;;
+        "opensuse"|"suse")
+            echo "Detected $1. Installing gmp-devel using zypper."
+            sudo zypper install -y gmp-devel
+            ;;
+        "arch"|"manjaro")
+            echo "Detected $1. Installing gmp using pacman."
+            sudo pacman -Syu gmp
+            ;;
+        *)
+            echo "Unsupported OS: $1. Please install gmp-devel manually."
+            exit 1
+            ;;
+    esac
+}
+
 # Function to update cmake using the appropriate package manager
 update_cmake() {
     case "$1" in
@@ -145,6 +176,9 @@ install_sqlite3 "$OS_NAME"
 
 # Update cmake
 update_cmake "$OS_NAME"
+
+# Install gmp-devel
+install_gmp "$OS_NAME"
 
 # Build sqlcipher
 ./configure --enable-tempstore=yes CFLAGS="-DSQLITE_HAS_CODEC" LDFLAGS="-lcrypto"

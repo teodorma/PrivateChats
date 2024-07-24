@@ -1,33 +1,27 @@
-//
-// Created by maciucateodor on 6/24/24.
-//
-
 #include "Server.h"
 
-Server::Server(const int PORT) {
+Server::Server(int PORT) {
     try {
-        Server::SOCKET = socket(AF_INET, SOCK_STREAM, 0);
+        SOCKET = socket(AF_INET, SOCK_STREAM, 0);
         if (SOCKET == -1) {
             throw std::system_error(errno, std::generic_category());
         }
 
-        this->SERVER_ADDR.sin_family = AF_INET;
-        this->SERVER_ADDR.sin_addr.s_addr = INADDR_ANY;
-        this->SERVER_ADDR.sin_port = htons(PORT);
+        SERVER_ADDR.sin_family = AF_INET;
+        SERVER_ADDR.sin_addr.s_addr = INADDR_ANY;
+        SERVER_ADDR.sin_port = htons(PORT);
 
         if (bind(SOCKET, (struct sockaddr*)&SERVER_ADDR, sizeof(SERVER_ADDR)) == -1) {
             throw std::system_error(errno, std::generic_category());
         }
-    }
-    catch (std::system_error& error) {
-        std::cout << "Caught system error "
-                  << error.code() << "\n"
+    } catch (const std::system_error& error) {
+        std::cerr << "Caught system error: " << error.code() << "\n"
                   << error.what() << "\n"
                   << errno << "\n";
     }
 }
 
-[[nodiscard]] int Server::get_SOCKET() const{
+[[nodiscard]] int Server::get_SOCKET() const {
     return SOCKET;
 }
 
@@ -39,8 +33,9 @@ void Server::Receive(int client_socket) {
     char buff[4096] = {0};
     auto n = recv(client_socket, buff, sizeof(buff) - 1, 0);
 
-    if(n < 0){
-        std::cerr << "Error reading from socket: " << strerror(errno);
+    if (n < 0) {
+        std::cerr << "Error reading from socket: " << strerror(errno) << std::endl;
+        close(client_socket);
         return;
     }
 
@@ -49,19 +44,14 @@ void Server::Receive(int client_socket) {
     auto request = Requests(stream);
     auto RESPONSE = request.Process();
 
-
-    char response_buff[RESPONSE.size()];
-    std::strncpy(response_buff, RESPONSE.c_str(), sizeof(response_buff) - 1);
-    n = write(client_socket, response_buff, sizeof(response_buff)-1);
-
-    if(n < 0){
-        std::cerr << "Error sending response: " << strerror(errno);
-        return;
+    n = send(client_socket, RESPONSE.c_str(), RESPONSE.size(), 0);
+    if (n < 0) {
+        std::cerr << "Error sending response: " << strerror(errno) << std::endl;
     }
 
     close(client_socket);
 }
 
 Server::~Server() {
-    close(Server::SOCKET);
+    close(SOCKET);
 }
