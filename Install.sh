@@ -97,6 +97,37 @@ install_sqlite3() {
     esac
 }
 
+# Function to update cmake using the appropriate package manager
+update_cmake() {
+    case "$1" in
+        "ubuntu"|"debian")
+            echo "Detected $1. Updating cmake using apt."
+            sudo apt update
+            sudo apt install -y cmake
+            ;;
+        "fedora")
+            echo "Detected Fedora. Updating cmake using dnf."
+            sudo dnf install -y cmake
+            ;;
+        "centos"|"rhel"|"rocky"|"almalinux")
+            echo "Detected $1. Updating cmake using yum."
+            sudo yum install -y cmake
+            ;;
+        "opensuse"|"suse")
+            echo "Detected $1. Updating cmake using zypper."
+            sudo zypper install -y cmake
+            ;;
+        "arch"|"manjaro")
+            echo "Detected $1. Updating cmake using pacman."
+            sudo pacman -Syu cmake
+            ;;
+        *)
+            echo "Unsupported OS: $1. Please update cmake manually."
+            exit 1
+            ;;
+    esac
+}
+
 # Detect the OS
 if [ -f /etc/os-release ]; then
     . /etc/os-release
@@ -111,6 +142,9 @@ install_openssl "$OS_NAME"
 
 # Install sqlite3
 install_sqlite3 "$OS_NAME"
+
+# Update cmake
+update_cmake "$OS_NAME"
 
 # Build sqlcipher
 ./configure --enable-tempstore=yes CFLAGS="-DSQLITE_HAS_CODEC" LDFLAGS="-lcrypto"
