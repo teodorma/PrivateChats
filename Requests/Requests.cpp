@@ -37,7 +37,8 @@ std::string Requests::Process() {
     switch (getType(Request)) {
         case UPDATE: {
             Client::Update(Request["PHONE"].asString(),
-                       Request["IP"].asString())>> JSON;
+                       Request["NAME"].asString(),
+                       Request["KEY"].asString())>> JSON;
             break;
         }
         case GET_KEY: {
