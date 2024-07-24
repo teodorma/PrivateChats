@@ -173,7 +173,6 @@ std::string Encryption::encrypt(const std::string& message, const mpz_class& e, 
 
 std::string Encryption::decrypt(const std::string& ciphertext, const mpz_class& d, const mpz_class& n) {
     mpz_class encrypted(ciphertext);
-
     mpz_class decrypted;
     mpz_powm(decrypted.get_mpz_t(), encrypted.get_mpz_t(), d.get_mpz_t(), n.get_mpz_t());
 
@@ -183,13 +182,11 @@ std::string Encryption::decrypt(const std::string& ciphertext, const mpz_class& 
     std::string plaintext(reinterpret_cast<char*>(decryptedBytes), count);
 
     free(decryptedBytes);
-
     return plaintext;
 }
 
 mpz_class Encryption::calculatePrivateExponent(const mpz_class& p, const mpz_class& q, const mpz_class& e) {
     mpz_class phi = (p - 1) * (q - 1);
-
     mpz_class d;
     if (mpz_invert(d.get_mpz_t(), e.get_mpz_t(), phi.get_mpz_t()) == 0) {
         throw std::runtime_error("Error: e does not have an inverse modulo φ(n)");

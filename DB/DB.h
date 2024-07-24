@@ -50,6 +50,8 @@ public:
 
     static bool passCheck(const std::string& password);
     static bool setRSAParameters();
+
+    static void openDatabase();
 };
 
 #endif //SERVER_DB_H
