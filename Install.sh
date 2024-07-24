@@ -7,24 +7,24 @@ cd sqlcipher
 # Install OpenSSL
 install_openssl() {
     case "$1" in
-        "Ubuntu"|"Debian")
+        "ubuntu"|"debian")
             echo "Detected $1. Installing openssl using apt."
             sudo apt update
             sudo apt install -y openssl libssl-dev
             ;;
-        "Fedora")
+        "fedora")
             echo "Detected Fedora. Installing openssl using dnf."
             sudo dnf install -y openssl openssl-devel
             ;;
-        "CentOS"|"RedHatEnterpriseServer"|"Rocky"|"AlmaLinux")
+        "centos"|"rhel"|"rocky"|"almalinux")
             echo "Detected $1. Installing openssl using yum."
             sudo yum install -y openssl openssl-devel
             ;;
-        "openSUSE"|"SUSE")
+        "opensuse"|"suse")
             echo "Detected $1. Installing openssl using zypper."
             sudo zypper install -y openssl libopenssl-devel
             ;;
-        "Arch"|"Manjaro")
+        "arch"|"manjaro")
             echo "Detected $1. Installing openssl using pacman."
             sudo pacman -Syu openssl
             ;;
@@ -38,24 +38,24 @@ install_openssl() {
 # Function to install jsoncpp-devel using the appropriate package manager
 install_jsoncpp() {
     case "$1" in
-        "Ubuntu"|"Debian")
+        "ubuntu"|"debian")
             echo "Detected $1. Installing jsoncpp-devel using apt."
             sudo apt update
-            sudo apt install -y jsoncpp-devel
+            sudo apt install -y jsoncpp
             ;;
-        "Fedora")
+        "fedora")
             echo "Detected Fedora. Installing jsoncpp-devel using dnf."
             sudo dnf install -y jsoncpp-devel
             ;;
-        "CentOS"|"RedHatEnterpriseServer"|"Rocky"|"AlmaLinux")
+        "centos"|"rhel"|"rocky"|"almalinux")
             echo "Detected $1. Installing jsoncpp-devel using yum."
             sudo yum install -y jsoncpp-devel
             ;;
-        "openSUSE"|"SUSE")
+        "opensuse"|"suse")
             echo "Detected $1. Installing jsoncpp-devel using zypper."
             sudo zypper install -y jsoncpp-devel
             ;;
-        "Arch"|"Manjaro")
+        "arch"|"manjaro")
             echo "Detected $1. Installing jsoncpp-devel using pacman."
             sudo pacman -Syu jsoncpp
             ;;
@@ -83,7 +83,7 @@ install_openssl "$OS_NAME"
 make
 sudo make install
 
-cd ... || exit
+cd - || exit
 
 # Install jsoncpp-devel
 install_jsoncpp "$OS_NAME"
@@ -97,4 +97,4 @@ make
 
 ./Server
 
-cd ... || exit
+cd - || exit
