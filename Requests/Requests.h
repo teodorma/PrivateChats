@@ -22,7 +22,7 @@ public:
     ~Requests();
 
 private:
-    static bool isUpdateRequest(const std::string& s);
+    static bool isRegisterRequest(const std::string& s);
     Json::Value Request;
     Server& server; // Reference to the Server instance
     int client_socket;

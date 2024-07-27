@@ -3,20 +3,27 @@
 Requests::Requests(std::istringstream& data, Server& server, int client_socket) : server(server), client_socket(client_socket) {
     std::cout << std::endl;
     std::string dataStr = data.str();
-    std::cout << "Received data: " << dataStr << std::endl;
-    if (isUpdateRequest(dataStr)) {
-        std::istringstream ss(dataStr);
-        ss >> Request;
-    } else {
-        //std::string decryptedData = decrypt(dataStr, DB::D, DB::N);
-        std::cout << "Decrypted data: " << dataStr << std::endl;
+    std::cout << "_____________________________________________________" << std::endl;
+    std::cout << "Received data: " << dataStr;
+    try {
+        if (isRegisterRequest(dataStr)) {
+            std::istringstream ss(dataStr);
+            ss >> Request;
+        } else {
+            //std::string decryptedData = decrypt(dataStr, DB::D, DB::N);
+            std::cout << "Decrypted data: " << dataStr;
 
-        std::istringstream ss(dataStr);
-        ss >> Request;
+            std::istringstream ss(dataStr);
+            ss >> Request;
+        }
+    }
+    catch(const Json::RuntimeError& error){
+        std::cerr << "Exception no json found"
+                  << error.what() << std::endl;
     }
 }
 
-bool Requests::isUpdateRequest(const std::string& s) {
+bool Requests::isRegisterRequest(const std::string& s) {
     Json::Value root;
     Json::CharReaderBuilder readerBuilder;
     std::string errs;
@@ -31,41 +38,47 @@ bool Requests::isUpdateRequest(const std::string& s) {
 
 std::string Requests::Process() {
     Json::Value JSON;
-    switch (getType(Request)) {
-        case REGISTER: {
-            std::string phone_number = getPhoneNumber();
-            server.RegisterClient(phone_number, client_socket);
-            Client::Register(Request["PHONE"].asString(),
-                             Request["NAME"].asString(),
-                             Request["KEY"].asString()) >> JSON;
-            break;
+    try {
+        switch (getType(Request)) {
+            case REGISTER: {
+                std::string phone_number = getPhoneNumber();
+                server.RegisterClient(phone_number, client_socket);
+                Client::Register(Request["PHONE"].asString(),
+                                 Request["NAME"].asString(),
+                                 Request["KEY"].asString()) >> JSON;
+                break;
+            }
+            case DELETE: {
+                Admin::Delete(Request["PHONE"].asString(),
+                              Request["PASSWORD"].asString()) >> JSON;
+                break;
+            }
+            case ALL_DATA: {
+                Admin::AllData(Request["PASSWORD"].asString()) >> JSON;
+                break;
+            }
+            case PURGE: {
+                Admin::Purge(Request["PASSWORD"].asString()) >> JSON;
+                break;
+            }
+            case MESSAGE: {
+                // Process MESSAGE request
+                std::string recipient_phone = getRecipientPhoneNumber();
+                std::string message = getMessage();
+                std::cout << "# Sending message to " << recipient_phone << ": " << message << std::endl;
+                server.SendMessage(recipient_phone, message);
+                JSON["RESPONSE"] = "MESSAGE_SENT";
+                break;
+            }
+            default: {
+                std::istringstream(R"({"RESPONSE":"INVALID_REQUEST"})") >> JSON;
+                break;
+            }
         }
-        case DELETE: {
-            Admin::Delete(Request["PHONE"].asString(),
-                          Request["PASSWORD"].asString()) >> JSON;
-            break;
-        }
-        case ALL_DATA: {
-            Admin::AllData(Request["PASSWORD"].asString()) >> JSON;
-            break;
-        }
-        case PURGE: {
-            Admin::Purge(Request["PASSWORD"].asString()) >> JSON;
-            break;
-        }
-        case MESSAGE: {
-            // Process MESSAGE request
-            std::string recipient_phone = getRecipientPhoneNumber();
-            std::string message = getMessage();
-            std::cout << "Sending message to " << recipient_phone << ": " << message << std::endl;
-            server.SendMessage(recipient_phone, message);
-            JSON["RESPONSE"] = "MESSAGE_SENT";
-            break;
-        }
-        default: {
-            std::istringstream(R"({"RESPONSE":"INVALID_REQUEST"})") >> JSON;
-            break;
-        }
+    }
+    catch (std::invalid_argument& e){
+        std::cerr << e.what() << std::endl;
+        JSON["RESPONSE"] = "INVALID_REQUEST";
     }
     Json::FastWriter WRITER;
     auto RESPONSE = WRITER.write(JSON);
