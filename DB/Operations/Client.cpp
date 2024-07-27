@@ -4,7 +4,7 @@
 
 #include "Client.h"
 
-std::istringstream Client::Update(const std::string& PHONE, const std::string& NAME, const std::string& KEY) {
+std::istringstream Client::Register(const std::string& PHONE, const std::string& NAME, const std::string& KEY) {
     std::lock_guard<std::mutex> guard(DB::db_mutex);
 
     std::string sql = "INSERT INTO client (phone_number, name, key) VALUES (?, ?, ?);";
@@ -27,13 +27,14 @@ std::istringstream Client::Update(const std::string& PHONE, const std::string& N
     }
 
     sqlite3_finalize(stmt);
-    return std::istringstream(R"({"RESPONSE":"SUCCESS"})");
+    return std::istringstream(R"({"RESPONSE":"REGISTER_SUCCESS", "KEY":")" + DB::N.get_str() + R"("})");
 }
 
 
-std::istringstream Client::Get_KEY() {
-    std::lock_guard<std::mutex> guard(DB::db_mutex);
-    std::string response_str(R"({"RESPONSE":"SUCCESS", "KEY":")" + DB::N.get_str() + R"("})");
+std::istringstream Client::Message(const std::string& PHONE, const std::string& MESSAGE, const std::string& RECEIVER){
 
-    return std::istringstream(response_str);
+
+    return std::istringstream(R"({"RESPONSE":"REGISTER_SUCCESS", "KEY":")" + DB::N.get_str() + R"("})");
 }
+
+Client::~Client() = default;

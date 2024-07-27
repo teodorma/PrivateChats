@@ -34,7 +34,7 @@ std::istringstream Admin::AllData(const std::string& pass) {
 
     sqlite3_finalize(stmt);
 
-    return std::istringstream(R"({"RESPONSE":"SUCCESS"})");
+    return std::istringstream(R"({"RESPONSE":"ALL_DATA_RETRIEVED"})");
 }
 
 
@@ -65,9 +65,8 @@ std::istringstream Admin::Delete(const std::string& PHONE, const std::string& pa
     }
 
     sqlite3_finalize(stmt);
-    return std::istringstream(R"({"RESPONSE":"SUCCESS"})");
+    return std::istringstream(R"({"RESPONSE":"DELETE_SUCCESS"})");
 }
-
 
 
 
@@ -78,5 +77,8 @@ std::istringstream Admin::Purge(const std::string& pass){
     remove(DATABASE_NAME);
 
     sqlite3_close(DB::DataBase);
-    return std::istringstream(R"({"RESPONSE":"SUCCESS"})");
+    return std::istringstream(R"({"RESPONSE":"PURGE_SUCCESS"})");
 }
+
+
+Admin::~Admin() = default;

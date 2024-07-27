@@ -32,6 +32,7 @@ add_executable(Server
         DB/Encryption/Encryption.cpp
         DB/Operations/Admin.cpp
         DB/Operations/Client.cpp
+        Server/Worker.cpp
 )
 
 # Link libraries

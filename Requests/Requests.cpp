@@ -1,31 +1,28 @@
 #include "Requests.h"
 
-Requests::Requests(std::istringstream& data) {
+Requests::Requests(std::istringstream& data, Server& server, int client_socket) : server(server), client_socket(client_socket) {
     std::cout << std::endl;
     std::string dataStr = data.str();
     std::cout << "Received data: " << dataStr << std::endl;
-    std::string decodedData = Base64_decode(dataStr);
-    std::cout << "Decoded data: " << Base64_decode(dataStr) << std::endl;
-    if(isKeyRequest(decodedData)){
-        std::istringstream ss(decodedData);
+    if (isUpdateRequest(dataStr)) {
+        std::istringstream ss(dataStr);
         ss >> Request;
-    }
-    else {
-        std::string decryptedData = decrypt(decodedData, DB::D, DB::N);
-        std::cout << "Decrypted data: " << decryptedData << std::endl;
+    } else {
+        //std::string decryptedData = decrypt(dataStr, DB::D, DB::N);
+        std::cout << "Decrypted data: " << dataStr << std::endl;
 
-        std::istringstream ss(decryptedData);
+        std::istringstream ss(dataStr);
         ss >> Request;
     }
 }
 
-bool Requests::isKeyRequest(const std::string& s) {
+bool Requests::isUpdateRequest(const std::string& s) {
     Json::Value root;
     Json::CharReaderBuilder readerBuilder;
     std::string errs;
     std::istringstream ss(s);
     if (Json::parseFromStream(readerBuilder, ss, &root, &errs)) {
-        return root.isObject() && root.isMember("TYPE") && root["TYPE"].asString() == "GET_KEY";
+        return root.isObject() && root.isMember("TYPE") && root["TYPE"].asString() == "REGISTER";
     } else {
         return false;
     }
@@ -35,14 +32,12 @@ bool Requests::isKeyRequest(const std::string& s) {
 std::string Requests::Process() {
     Json::Value JSON;
     switch (getType(Request)) {
-        case UPDATE: {
-            Client::Update(Request["PHONE"].asString(),
-                       Request["NAME"].asString(),
-                       Request["KEY"].asString())>> JSON;
-            break;
-        }
-        case GET_KEY: {
-            Client::Get_KEY() >> JSON;
+        case REGISTER: {
+            std::string phone_number = getPhoneNumber();
+            server.RegisterClient(phone_number, client_socket);
+            Client::Register(Request["PHONE"].asString(),
+                             Request["NAME"].asString(),
+                             Request["KEY"].asString()) >> JSON;
             break;
         }
         case DELETE: {
@@ -54,12 +49,21 @@ std::string Requests::Process() {
             Admin::AllData(Request["PASSWORD"].asString()) >> JSON;
             break;
         }
-        case PURGE : {
+        case PURGE: {
             Admin::Purge(Request["PASSWORD"].asString()) >> JSON;
             break;
         }
+        case MESSAGE: {
+            // Process MESSAGE request
+            std::string recipient_phone = getRecipientPhoneNumber();
+            std::string message = getMessage();
+            std::cout << "Sending message to " << recipient_phone << ": " << message << std::endl;
+            server.SendMessage(recipient_phone, message);
+            JSON["RESPONSE"] = "MESSAGE_SENT";
+            break;
+        }
         default: {
-            std::istringstream(R"({"RESPONSE":"INVALID"})") >> JSON;
+            std::istringstream(R"({"RESPONSE":"INVALID_REQUEST"})") >> JSON;
             break;
         }
     }
@@ -71,14 +75,25 @@ std::string Requests::Process() {
 Requests::TYPES Requests::getType(const Json::Value& STR) {
     std::string types = STR["TYPE"].asString();
 
-    if (types == "UPDATE") return UPDATE;
-    if (types == "GET_KEY") return GET_KEY;
+    if (types == "REGISTER") return REGISTER;
     if (types == "DELETE") return DELETE;
     if (types == "ALL_DATA") return ALL_DATA;
     if (types == "PURGE") return PURGE;
+    if (types == "MESSAGE") return MESSAGE;
 
     throw std::invalid_argument("Invalid request type");
 }
 
-Requests::~Requests() = default;
+std::string Requests::getPhoneNumber() const {
+    return Request["PHONE"].asString();
+}
 
+std::string Requests::getRecipientPhoneNumber() const {
+    return Request["RECIPIENT_PHONE"].asString();
+}
+
+std::string Requests::getMessage() const {
+    return Request["MESSAGE"].asString();
+}
+
+Requests::~Requests() = default;

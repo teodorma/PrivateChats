@@ -11,10 +11,11 @@
 
 class Client {
 public:
-    static std::istringstream Update(const std::string& PHONE, const std::string& NAME, const std::string& KEY);
-    static std::istringstream Get_KEY();
+    static std::istringstream Register(const std::string& PHONE, const std::string& NAME, const std::string& KEY);
+    static std::istringstream Message(const std::string &PHONE, const std::string &MESSAGE, const std::string &RECEIVER);
 
     friend class Requests;
+    ~Client();
 };
 
 
