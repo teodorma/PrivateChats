@@ -1,8 +1,6 @@
 #include <iostream>
-#include <system_error>
-#include <thread>
-#include "DB/DB.h"
 #include "Server/Server.h"
+#include "DB/DB.h"
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
@@ -12,26 +10,9 @@ int main(int argc, char* argv[]) {
 
     int PORT_NO = std::stoi(argv[1]);
     Server server(PORT_NO);
+    DB Database;
 
-    DB DataBase;
-
-    if (listen(server.get_SOCKET(), 128) == -1) {
-        std::cerr << "Error in listen function: " << std::strerror(errno) << std::endl;
-        return 1;
-    }
-
-    while (true) {
-        socklen_t addrlen = sizeof(server.get_SERVER_ADDR());
-        sockaddr_in client_addr{};
-        int client_socket = accept(server.get_SOCKET(), (struct sockaddr*)&client_addr, &addrlen);
-        if (client_socket == -1) {
-            std::cerr << "Error in accept function: " << std::strerror(errno) << std::endl;
-            continue;
-        }
-
-        std::thread t1(&Server::Receive, client_socket);
-        t1.detach(); // Detach the thread to handle clients concurrently
-    }
+    server.run();
 
     return 0;
 }

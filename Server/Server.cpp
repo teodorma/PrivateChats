@@ -1,4 +1,5 @@
 #include "Server.h"
+#include "Worker.h"
 
 Server::Server(int PORT) {
     try {
@@ -14,6 +15,8 @@ Server::Server(int PORT) {
         if (bind(SOCKET, (struct sockaddr*)&SERVER_ADDR, sizeof(SERVER_ADDR)) == -1) {
             throw std::system_error(errno, std::generic_category());
         }
+
+        std::cout << "Server initialized and bound to port " << PORT << std::endl;
     } catch (const std::system_error& error) {
         std::cerr << "Caught system error: " << error.code() << "\n"
                   << error.what() << "\n"
@@ -21,37 +24,85 @@ Server::Server(int PORT) {
     }
 }
 
-[[nodiscard]] int Server::get_SOCKET() const {
-    return SOCKET;
+Server::~Server() {
+    close(SOCKET);
+
+    std::lock_guard<std::mutex> lock(clients_mutex);
+    for (const auto &client : clients) {
+        close(client.second);
+    }
+
+    for (auto &worker : workers) {
+        if (worker.joinable()) {
+            worker.join();
+        }
+    }
 }
 
-[[nodiscard]] sockaddr_in Server::get_SERVER_ADDR() const {
-    return SERVER_ADDR;
-}
-
-void Server::Receive(int client_socket) {
-    char buff[4096] = {0};
-    auto n = recv(client_socket, buff, sizeof(buff) - 1, 0);
-
-    if (n < 0) {
-        std::cerr << "Error reading from socket: " << strerror(errno) << std::endl;
-        close(client_socket);
+void Server::run() {
+    if (listen(SOCKET, 128) == -1) {
+        std::cerr << "Error in listen function: " << std::strerror(errno) << std::endl;
         return;
     }
 
-    buff[n] = '\0';
-    std::istringstream stream(buff);
-    auto request = Requests(stream);
-    auto RESPONSE = request.Process();
+    std::cout << "Server is listening on port " << ntohs(SERVER_ADDR.sin_port) << std::endl;
+    std::thread(&Server::acceptConnections, this).detach();
 
-    n = send(client_socket, RESPONSE.c_str(), RESPONSE.size(), 0);
-    if (n < 0) {
-        std::cerr << "Error sending response: " << strerror(errno) << std::endl;
+    std::unique_lock<std::mutex> lock(cv_m);
+    while (true) {
+        cv.wait(lock, [this]{ return !client_sockets.empty(); });
+        int client_socket = client_sockets.back();
+        client_sockets.pop_back();
+        workers.emplace_back(Worker(client_socket, *this));
     }
-
-    close(client_socket);
 }
 
-Server::~Server() {
-    close(SOCKET);
+void Server::acceptConnections() {
+    while (true) {
+        socklen_t addrlen = sizeof(SERVER_ADDR);
+        sockaddr_in client_addr{};
+        int client_socket = accept(SOCKET, (struct sockaddr*)&client_addr, &addrlen);
+        if (client_socket == -1) {
+            std::cerr << "Error in accept function: " << std::strerror(errno) << std::endl;
+            continue;
+        }
+
+        std::lock_guard<std::mutex> lock(cv_m);
+        client_sockets.push_back(client_socket);
+        cv.notify_one();
+    }
+}
+
+void Server::RegisterClient(const std::string &phone_number, int client_socket) {
+    std::lock_guard<std::mutex> lock(clients_mutex);
+    clients[phone_number] = client_socket;
+    std::cout << "Registered client with phone number: " << phone_number << " and socket: " << client_socket << std::endl;
+}
+
+void Server::SendMessage(const std::string &phone_number, const std::string &message) {
+    std::lock_guard<std::mutex> lock(clients_mutex);
+    auto it = clients.find(phone_number);
+
+    if (it != clients.end()) {
+        int recipient_socket = it->second;
+        std::string full_message = message + "\n"; // Add a newline character
+        ssize_t sent = send(recipient_socket, full_message.c_str(), full_message.size(), 0);
+        if (sent == -1) {
+            std::cerr << "Failed to send message to " << phone_number << ": " << strerror(errno) << std::endl;
+        } else {
+            std::cout << "Sent message to " << phone_number << ": " << message << std::endl;
+        }
+    } else {
+        std::cerr << "Client with phone number " << phone_number << " not found" << std::endl;
+    }
+}
+
+
+void Server::SendResponse(int client_socket, const std::string &response) {
+    ssize_t sent = send(client_socket, response.c_str(), response.size(), 0);
+    if (sent == -1) {
+        std::cerr << "Failed to send response to client socket " << client_socket << ": " << strerror(errno) << std::endl;
+    } else {
+        std::cout << "Sent response to client socket " << client_socket << ": " << response << std::endl;
+    }
 }

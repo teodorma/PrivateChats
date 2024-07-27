@@ -13,6 +13,8 @@ public:
     static std::istringstream Purge(const std::string &pass);
 
     friend class Requests;
+
+    ~Admin();
 };
 
 

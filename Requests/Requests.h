@@ -1,25 +1,35 @@
-//
-// Created by maciucateodor on 6/24/24.
-//
-
 #ifndef SERVER_REQUESTS_H
 #define SERVER_REQUESTS_H
+
 #include <string>
 #include <system_error>
 #include <iostream>
 #include "../DB/DB.h"
+#include "../Server/Server.h"
+#include <json/json.h>
+#include <utility>
 
-class Requests : Encryption{
-private:
-    Json::Value Request;
+// Forward declare the Server class to avoid cyclic dependency
+class Server;
+
+class Requests : Encryption {
 public:
-    enum TYPES{UPDATE, GET_KEY, DELETE, ALL_DATA, PURGE};
-    explicit Requests(std::istringstream & data);
+    enum TYPES {REGISTER, DELETE, ALL_DATA, PURGE, MESSAGE};
+
+    Requests(std::istringstream& data, Server& server, int client_socket);
     std::string Process();
-
     static TYPES getType(const Json::Value& STR);
-    static bool isKeyRequest(const std::string &s);
-
     ~Requests();
+
+private:
+    static bool isUpdateRequest(const std::string& s);
+    Json::Value Request;
+    Server& server; // Reference to the Server instance
+    int client_socket;
+
+    [[nodiscard]] std::string getPhoneNumber() const;
+    [[nodiscard]] std::string getRecipientPhoneNumber() const;
+    [[nodiscard]] std::string getMessage() const;
 };
-#endif //SERVER_REQUESTS_H
+
+#endif // SERVER_REQUESTS_H
