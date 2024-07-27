@@ -1,0 +1,5 @@
+.ninja_deps
+.ninja_log
+LastTest.log
+Requests.cpp.o
+Worker.cpp.o
