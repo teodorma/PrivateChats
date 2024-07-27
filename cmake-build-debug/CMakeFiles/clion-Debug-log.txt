@@ -1,6 +1,0 @@
-/home/maciucateodor/.local/share/JetBrains/Toolbox/apps/clion/bin/cmake/linux/x64/bin/cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_MAKE_PROGRAM=/home/maciucateodor/.local/share/JetBrains/Toolbox/apps/clion/bin/ninja/linux/x64/ninja -DCMAKE_C_COMPILER=/usr/bin/gcc -DCMAKE_CXX_COMPILER=/usr/bin/g++ -G Ninja -S /home/maciucateodor/CLionProjects/Server -B /home/maciucateodor/CLionProjects/Server/cmake-build-debug
--- jsoncpp include directory: /usr/include
--- jsoncpp library: jsoncpp
--- Configuring done (0.2s)
--- Generating done (0.0s)
--- Build files have been written to: /home/maciucateodor/CLionProjects/Server/cmake-build-debug
