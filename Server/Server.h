@@ -20,7 +20,7 @@ public:
     ~Server();
     void run();
     void RegisterClient(const std::string &phone_number, int client_socket);
-    void SendMessage(const std::string &phone_number, const std::string &message);
+    bool SendMessage(const std::string &phone_number, const std::string &message);
     static void SendResponse(int client_socket, const std::string &response);
 
 private:
