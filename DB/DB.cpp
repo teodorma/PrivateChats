@@ -139,8 +139,8 @@ void DB::setKeys() {
     }
 
     // Generate RSA keys
-    P = genKEY(KEY_LENGTH);
-    Q = genKEY(KEY_LENGTH);
+    P = genKEY(KEY_LENGTH/2);
+    Q = genKEY(KEY_LENGTH/2);
     N = P * Q;
     E = 65537;
     D = calculatePrivateExponent(P, Q, E);

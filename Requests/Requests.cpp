@@ -10,10 +10,12 @@ Requests::Requests(std::istringstream& data, Server& server, int client_socket) 
             std::istringstream ss(dataStr);
             ss >> Request;
         } else {
-            //std::string decryptedData = decrypt(dataStr, DB::D, DB::N);
-            std::cout << "Decrypted data: " << dataStr;
+            //std::string decodedData = Base64_decode(dataStr);
+            //std::cout << "Decoded data: " << decodedData << std::endl;
+            std::string decryptedData = decrypt(dataStr, DB::D, DB::N);
+            std::cout << "Decrypted data: " << decryptedData << std::endl;
 
-            std::istringstream ss(dataStr);
+            std::istringstream ss(decryptedData);
             ss >> Request;
         }
     }
@@ -64,10 +66,13 @@ std::string Requests::Process() {
             case MESSAGE: {
                 // Process MESSAGE request
                 std::string recipient_phone = getRecipientPhoneNumber();
-                std::string message = getMessage();
-                std::cout << "# Sending message to " << recipient_phone << ": " << message << std::endl;
+                std::string message = getChunk();
                 server.SendMessage(recipient_phone, message);
                 JSON["RESPONSE"] = "MESSAGE_SENT";
+                break;
+            }
+            case GET_USER_KEY: {
+                Client::Get_User_Key(Request["PHONE"].asString()) >> JSON;
                 break;
             }
             default: {
@@ -93,6 +98,7 @@ Requests::TYPES Requests::getType(const Json::Value& STR) {
     if (types == "ALL_DATA") return ALL_DATA;
     if (types == "PURGE") return PURGE;
     if (types == "MESSAGE") return MESSAGE;
+    if (types == "GET_USER_KEY") return GET_USER_KEY;
 
     throw std::invalid_argument("Invalid request type");
 }
@@ -105,8 +111,8 @@ std::string Requests::getRecipientPhoneNumber() const {
     return Request["RECIPIENT_PHONE"].asString();
 }
 
-std::string Requests::getMessage() const {
-    return Request["MESSAGE"].asString();
+std::string Requests::getChunk() const {
+    return Request["CHUNK"].asString();
 }
 
 Requests::~Requests() = default;
