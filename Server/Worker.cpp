@@ -21,6 +21,7 @@ void Worker::handleClient() {
             break;
         } else if (n == 0) {
             // Client disconnected
+            server.removeClient(client_socket);
             std::cout << "Client disconnected on socket " << client_socket << std::endl;
             close(client_socket);
             break;
@@ -33,4 +34,5 @@ void Worker::handleClient() {
         auto RESPONSE = request.Process();
         Server::SendResponse(client_socket, RESPONSE);
     }
+
 }
