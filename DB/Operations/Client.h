@@ -12,7 +12,7 @@
 class Client {
 public:
     static std::istringstream Register(const std::string& PHONE, const std::string& NAME, const std::string& KEY);
-    static std::istringstream Message(const std::string &PHONE, const std::string &MESSAGE, const std::string &RECEIVER);
+    static std::istringstream StoreMessage(const std::string &PHONE, const std::string &JSON);
 
     friend class Requests;
     ~Client();

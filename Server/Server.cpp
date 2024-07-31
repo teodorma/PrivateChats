@@ -79,7 +79,7 @@ void Server::RegisterClient(const std::string &phone_number, int client_socket) 
     std::cout << "Registered client with phone number: " << phone_number << " and socket: " << client_socket << std::endl;
 }
 
-void Server::SendMessage(const std::string &phone_number, const std::string &message) {
+bool Server::SendMessage(const std::string &phone_number, const std::string &message) {
     std::lock_guard<std::mutex> lock(clients_mutex);
     auto it = clients.find(phone_number);
 
@@ -92,8 +92,10 @@ void Server::SendMessage(const std::string &phone_number, const std::string &mes
         } else {
             std::cout << "Sent message to " << phone_number << ": " << message << std::endl;
         }
+        return true;
     } else {
         std::cerr << "Client with phone number " << phone_number << " not found" << std::endl;
+        return false;
     }
 }
 

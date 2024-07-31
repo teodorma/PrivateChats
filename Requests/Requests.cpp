@@ -54,12 +54,14 @@ std::string Requests::Process() {
             break;
         }
         case MESSAGE: {
-            // Process MESSAGE request
             std::string recipient_phone = getRecipientPhoneNumber();
             std::string message = getMessage();
-            std::cout << "Sending message to " << recipient_phone << ": " << message << std::endl;
-            server.SendMessage(recipient_phone, message);
-            JSON["RESPONSE"] = "MESSAGE_SENT";
+            if(!server.SendMessage(recipient_phone, message)){
+                Client::StoreMessage(Request["PHONE"].asString(), Request.asString()) >> JSON;
+            }
+            else{
+                JSON["RESPONSE"] = "MESSAGE_SENT";
+            }
             break;
         }
         default: {
