@@ -16,6 +16,8 @@ public:
 
     friend class Requests;
     ~Client();
+
+    static std::istringstream Get_User_Key(const std::string &PHONE);
 };
 
 

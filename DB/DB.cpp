@@ -363,8 +363,6 @@ DB::DB() {
 }
 
 
-
-
 DB::~DB() {
     if (DataBase) {
         sqlite3_close(DataBase);
