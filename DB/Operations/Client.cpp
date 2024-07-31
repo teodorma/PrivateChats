@@ -54,4 +54,42 @@ std::istringstream Client::StoreMessage(const std::string& PHONE, const std::str
     return std::istringstream(R"({"RESPONSE":"MESSAGE_STORED"})");
 }
 
+std::istringstream Client::Get_User_Key(const std::string& PHONE) {
+    std::lock_guard<std::mutex> guard(DB::db_mutex);
+    const char* sql = "SELECT key FROM client WHERE phone_number = ?;";
+    int rc;
+    sqlite3_stmt* stmt;
+    rc = sqlite3_prepare_v2(DB::DataBase, sql, -1, &stmt, nullptr);
+    if (rc != SQLITE_OK) {
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(DB::DataBase) << std::endl;
+        return std::istringstream(R"({"RESPONSE":"FAILURE", "KEY":""})");
+    }
+    rc = sqlite3_bind_text(stmt, 1, PHONE.c_str(), -1, SQLITE_TRANSIENT);
+    if (rc != SQLITE_OK) {
+        std::cerr << "Failed to bind value: " << sqlite3_errmsg(DB::DataBase) << std::endl;
+        sqlite3_finalize(stmt);
+        return std::istringstream(R"({"RESPONSE":"FAILURE", "KEY":""})");
+    }
+    rc = sqlite3_step(stmt);
+    std::ostringstream oss;
+    if (rc == SQLITE_ROW) {
+        const unsigned char* keyText = sqlite3_column_text(stmt, 0); // Correct column index for 'key'
+        if (keyText) {
+            std::string keyStr(reinterpret_cast<const char*>(keyText));
+            oss << R"({"RESPONSE":"SUCCESS", "KEY":")" << keyStr << R"("})";
+        } else {
+            std::cerr << "No key text found: " << sqlite3_errmsg(DB::DataBase) << std::endl;
+            sqlite3_finalize(stmt);
+            return std::istringstream(R"({"RESPONSE":"NO_DATA", "KEY":""})");
+        }
+    } else {
+        std::cerr << "No data found: " << sqlite3_errmsg(DB::DataBase) << std::endl;
+        sqlite3_finalize(stmt);
+        return std::istringstream(R"({"RESPONSE":"NO_DATA", "KEY":""})");
+    }
+    sqlite3_finalize(stmt);
+    return std::istringstream(oss.str());
+}
+
+
 Client::~Client() = default;

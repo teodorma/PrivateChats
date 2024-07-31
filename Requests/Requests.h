@@ -14,7 +14,7 @@ class Server;
 
 class Requests : Encryption {
 public:
-    enum TYPES {REGISTER, DELETE, ALL_DATA, PURGE, MESSAGE};
+    enum TYPES {REGISTER, DELETE, ALL_DATA, PURGE, MESSAGE, GET_USER_KEY};
 
     Requests(std::istringstream& data, Server& server, int client_socket);
     std::string Process();
