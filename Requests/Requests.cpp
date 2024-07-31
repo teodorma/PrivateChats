@@ -3,29 +3,20 @@
 Requests::Requests(std::istringstream& data, Server& server, int client_socket) : server(server), client_socket(client_socket) {
     std::cout << std::endl;
     std::string dataStr = data.str();
-    std::cout << "_____________________________________________________" << std::endl;
-    std::cout << "Received data: " << dataStr;
-    try {
-        if (isRegisterRequest(dataStr)) {
-            std::istringstream ss(dataStr);
-            ss >> Request;
-        } else {
-            //std::string decodedData = Base64_decode(dataStr);
-            //std::cout << "Decoded data: " << decodedData << std::endl;
-            std::string decryptedData = decrypt(dataStr, DB::D, DB::N);
-            std::cout << "Decrypted data: " << decryptedData << std::endl;
+    std::cout << "Received data: " << dataStr << std::endl;
+    if (isUpdateRequest(dataStr)) {
+        std::istringstream ss(dataStr);
+        ss >> Request;
+    } else {
+        //std::string decryptedData = decrypt(dataStr, DB::D, DB::N);
+        std::cout << "Decrypted data: " << dataStr << std::endl;
 
-            std::istringstream ss(decryptedData);
-            ss >> Request;
-        }
-    }
-    catch(const Json::RuntimeError& error){
-        std::cerr << "Exception no json found"
-                  << error.what() << std::endl;
+        std::istringstream ss(dataStr);
+        ss >> Request;
     }
 }
 
-bool Requests::isRegisterRequest(const std::string& s) {
+bool Requests::isUpdateRequest(const std::string& s) {
     Json::Value root;
     Json::CharReaderBuilder readerBuilder;
     std::string errs;
@@ -40,50 +31,43 @@ bool Requests::isRegisterRequest(const std::string& s) {
 
 std::string Requests::Process() {
     Json::Value JSON;
-    try {
-        switch (getType(Request)) {
-            case REGISTER: {
-                std::string phone_number = getPhoneNumber();
-                server.RegisterClient(phone_number, client_socket);
-                Client::Register(Request["PHONE"].asString(),
-                                 Request["NAME"].asString(),
-                                 Request["KEY"].asString()) >> JSON;
-                break;
-            }
-            case DELETE: {
-                Admin::Delete(Request["PHONE"].asString(),
-                              Request["PASSWORD"].asString()) >> JSON;
-                break;
-            }
-            case ALL_DATA: {
-                Admin::AllData(Request["PASSWORD"].asString()) >> JSON;
-                break;
-            }
-            case PURGE: {
-                Admin::Purge(Request["PASSWORD"].asString()) >> JSON;
-                break;
-            }
-            case MESSAGE: {
-                // Process MESSAGE request
-                std::string recipient_phone = getRecipientPhoneNumber();
-                std::string message = getChunk();
-                server.SendMessage(recipient_phone, message);
-                JSON["RESPONSE"] = "MESSAGE_SENT";
-                break;
-            }
-            case GET_USER_KEY: {
-                Client::Get_User_Key(Request["PHONE"].asString()) >> JSON;
-                break;
-            }
-            default: {
-                std::istringstream(R"({"RESPONSE":"INVALID_REQUEST"})") >> JSON;
-                break;
-            }
+    switch (getType(Request)) {
+        case REGISTER: {
+            std::string phone_number = getPhoneNumber();
+            server.RegisterClient(phone_number, client_socket);
+            Client::Register(Request["PHONE"].asString(),
+                             Request["NAME"].asString(),
+                             Request["KEY"].asString()) >> JSON;
+            break;
         }
-    }
-    catch (std::invalid_argument& e){
-        std::cerr << e.what() << std::endl;
-        JSON["RESPONSE"] = "INVALID_REQUEST";
+        case DELETE: {
+            Admin::Delete(Request["PHONE"].asString(),
+                          Request["PASSWORD"].asString()) >> JSON;
+            break;
+        }
+        case ALL_DATA: {
+            Admin::AllData(Request["PASSWORD"].asString()) >> JSON;
+            break;
+        }
+        case PURGE: {
+            Admin::Purge(Request["PASSWORD"].asString()) >> JSON;
+            break;
+        }
+        case MESSAGE: {
+            std::string recipient_phone = getRecipientPhoneNumber();
+            std::string message = getMessage();
+            if(!server.SendMessage(recipient_phone, message)){
+                Client::StoreMessage(Request["PHONE"].asString(), Request.asString()) >> JSON;
+            }
+            else{
+                JSON["RESPONSE"] = "MESSAGE_SENT";
+            }
+            break;
+        }
+        default: {
+            std::istringstream(R"({"RESPONSE":"INVALID_REQUEST"})") >> JSON;
+            break;
+        }
     }
     Json::FastWriter WRITER;
     auto RESPONSE = WRITER.write(JSON);
@@ -98,7 +82,6 @@ Requests::TYPES Requests::getType(const Json::Value& STR) {
     if (types == "ALL_DATA") return ALL_DATA;
     if (types == "PURGE") return PURGE;
     if (types == "MESSAGE") return MESSAGE;
-    if (types == "GET_USER_KEY") return GET_USER_KEY;
 
     throw std::invalid_argument("Invalid request type");
 }
@@ -111,8 +94,8 @@ std::string Requests::getRecipientPhoneNumber() const {
     return Request["RECIPIENT_PHONE"].asString();
 }
 
-std::string Requests::getChunk() const {
-    return Request["CHUNK"].asString();
+std::string Requests::getMessage() const {
+    return Request["MESSAGE"].asString();
 }
 
 Requests::~Requests() = default;

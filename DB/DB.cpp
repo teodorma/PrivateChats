@@ -32,6 +32,15 @@ void DB::createTables() {
         );
     )";
 
+    const char* sqlMessage_Queue = R"(
+        CREATE TABLE IF NOT EXISTS message_queue (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_phone_number TEXT NOT NULL,
+            message TEXT NOT NULL,
+            FOREIGN KEY (client_phone_number) REFERENCES client(phone_number)
+        );
+    )";
+
     char* errorMessage = nullptr;
 
     // Execute SQL for client table
@@ -51,8 +60,15 @@ void DB::createTables() {
     } else {
         std::cout << "Admin table created successfully" << std::endl;
     }
-}
 
+    rc = sqlite3_exec(DataBase, sqlMessage_Queue, nullptr, nullptr, &errorMessage);
+    if (rc != SQLITE_OK) {
+        std::cerr << "SQL error in message_queue table creation: " << errorMessage << std::endl;
+        sqlite3_free(errorMessage);
+    } else {
+        std::cout << "Message_queue table created successfully" << std::endl;
+    }
+}
 
 
 bool DB::isDatabaseInitiated() {
