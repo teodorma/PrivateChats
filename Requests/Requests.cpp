@@ -3,15 +3,15 @@
 Requests::Requests(std::istringstream& data, Server& server, int client_socket) : server(server), client_socket(client_socket) {
     std::cout << std::endl;
     std::string dataStr = data.str();
-    std::cout << "Received data: " << dataStr << std::endl;
+    std::cout << "Received data: " << dataStr;
     if (isUpdateRequest(dataStr)) {
         std::istringstream ss(dataStr);
         ss >> Request;
     } else {
-        //std::string decryptedData = decrypt(dataStr, DB::D, DB::N);
-        std::cout << "Decrypted data: " << dataStr << std::endl;
+        std::string decryptedData = decrypt(dataStr, DB::D, DB::N);
+        std::cout << "Decrypted data: " << decryptedData << std::endl;
 
-        std::istringstream ss(dataStr);
+        std::istringstream ss(decryptedData);
         ss >> Request;
     }
 }
@@ -53,6 +53,10 @@ std::string Requests::Process() {
             Admin::Purge(Request["PASSWORD"].asString()) >> JSON;
             break;
         }
+        case GET_USER_KEY: {
+            Client::Get_User_Key(Request["PHONE"].asString()) >> JSON;
+            break;
+        }
         case MESSAGE: {
             std::string recipient_phone = getRecipientPhoneNumber();
             std::string message = getMessage();
@@ -82,6 +86,7 @@ Requests::TYPES Requests::getType(const Json::Value& STR) {
     if (types == "ALL_DATA") return ALL_DATA;
     if (types == "PURGE") return PURGE;
     if (types == "MESSAGE") return MESSAGE;
+    if (types == "GET_USER_KEY") return GET_USER_KEY;
 
     throw std::invalid_argument("Invalid request type");
 }

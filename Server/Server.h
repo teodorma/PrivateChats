@@ -34,6 +34,7 @@ private:
     std::vector<int> client_sockets;
 
     void acceptConnections();
+
 };
 
 #endif // SERVER_H
