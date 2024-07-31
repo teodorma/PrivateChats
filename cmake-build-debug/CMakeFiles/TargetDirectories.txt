@@ -1,3 +1,0 @@
-/home/maciucateodor/CLionProjects/Server/cmake-build-debug/CMakeFiles/Server.dir
-/home/maciucateodor/CLionProjects/Server/cmake-build-debug/CMakeFiles/edit_cache.dir
-/home/maciucateodor/CLionProjects/Server/cmake-build-debug/CMakeFiles/rebuild_cache.dir
