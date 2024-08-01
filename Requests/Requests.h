@@ -14,7 +14,7 @@ class Server;
 
 class Requests : Encryption {
 public:
-    enum TYPES {REGISTER, DELETE, ALL_DATA, PURGE, MESSAGE, GET_USER_KEY};
+    enum TYPES {REGISTER, DELETE, ALL_DATA, PURGE, MESSAGE, GET_USER_KEY, GET_MESSAGES, CONNECT};
 
     Requests(std::istringstream& data, Server& server, int client_socket);
     std::string Process();
@@ -27,9 +27,6 @@ private:
     Server& server; // Reference to the Server instance
     int client_socket;
 
-    [[nodiscard]] std::string getPhoneNumber() const;
-    [[nodiscard]] std::string getRecipientPhoneNumber() const;
-    [[nodiscard]] std::string getMessage() const;
 };
 
 #endif // SERVER_REQUESTS_H

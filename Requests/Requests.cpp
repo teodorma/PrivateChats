@@ -31,13 +31,20 @@ bool Requests::isUpdateRequest(const std::string& s) {
 
 std::string Requests::Process() {
     Json::Value JSON;
+    Json::FastWriter WRITER;
     switch (getType(Request)) {
         case REGISTER: {
-            std::string phone_number = getPhoneNumber();
-            server.RegisterClient(phone_number, client_socket);
+            server.RegisterClient(Request["PHONE"].asString(), client_socket);
             Client::Register(Request["PHONE"].asString(),
                              Request["NAME"].asString(),
                              Request["KEY"].asString()) >> JSON;
+            break;
+        }
+        case CONNECT: {
+            Client::lookUp(Request["PHONE"].asString()) >> JSON;
+            if (JSON["RESPONSE"].asString() == "SUCCESS") {
+                server.RegisterClient(Request["PHONE"].asString(), client_socket);
+            }
             break;
         }
         case DELETE: {
@@ -57,11 +64,18 @@ std::string Requests::Process() {
             Client::Get_User_Key(Request["PHONE"].asString()) >> JSON;
             break;
         }
+        case GET_MESSAGES: {
+            std::vector<std::string> messages;
+            Client::Get_Messages(Request["PHONE"].asString(), messages) >> JSON;
+            for(const auto& chunk : messages){
+                server.SendMessage(Request["PHONE"].asString(), chunk);
+            }
+            break;
+        }
         case MESSAGE: {
-            std::string recipient_phone = getRecipientPhoneNumber();
-            std::string message = getMessage();
-            if(!server.SendMessage(recipient_phone, message)){
-                Client::StoreMessage(Request["PHONE"].asString(), Request.asString()) >> JSON;
+            auto request = WRITER.write(Request);
+            if(!server.SendMessage(Request["RECIPIENT_PHONE"].asString(), request)){
+                Client::StoreMessage(Request["PHONE"].asString(), request) >> JSON;
             }
             else{
                 JSON["RESPONSE"] = "MESSAGE_SENT";
@@ -73,7 +87,6 @@ std::string Requests::Process() {
             break;
         }
     }
-    Json::FastWriter WRITER;
     auto RESPONSE = WRITER.write(JSON);
     return RESPONSE;
 }
@@ -87,20 +100,10 @@ Requests::TYPES Requests::getType(const Json::Value& STR) {
     if (types == "PURGE") return PURGE;
     if (types == "MESSAGE") return MESSAGE;
     if (types == "GET_USER_KEY") return GET_USER_KEY;
+    if (types == "GET_MESSAGES") return GET_MESSAGES;
+    if (types == "CONNECT") return CONNECT;
 
     throw std::invalid_argument("Invalid request type");
-}
-
-std::string Requests::getPhoneNumber() const {
-    return Request["PHONE"].asString();
-}
-
-std::string Requests::getRecipientPhoneNumber() const {
-    return Request["RECIPIENT_PHONE"].asString();
-}
-
-std::string Requests::getMessage() const {
-    return Request["MESSAGE"].asString();
 }
 
 Requests::~Requests() = default;

@@ -9,7 +9,8 @@
 #include <system_error>
 #include <thread>
 #include <vector>
-#include <map>
+#include <algorithm>
+#include <unordered_map>
 #include <mutex>
 #include <condition_variable>
 #include "Worker.h"
@@ -22,11 +23,12 @@ public:
     void RegisterClient(const std::string &phone_number, int client_socket);
     bool SendMessage(const std::string &phone_number, const std::string &message);
     static void SendResponse(int client_socket, const std::string &response);
+    void removeClient(const int client_sock);
 
 private:
     int SOCKET;
     sockaddr_in SERVER_ADDR{};
-    std::map<std::string, int> clients; // Mapping of phone number to socket
+    std::unordered_map<int, std::string> clients; // Mapping of socket to phone number
     std::mutex clients_mutex; // Mutex to protect access to clients map
     std::vector<std::thread> workers;
     std::condition_variable cv;

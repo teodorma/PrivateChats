@@ -359,9 +359,7 @@ DB::DB() {
         openDatabase();
         setRSAParameters();
     }
-
 }
-
 
 DB::~DB() {
     if (DataBase) {

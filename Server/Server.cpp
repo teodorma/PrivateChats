@@ -29,7 +29,7 @@ Server::~Server() {
 
     std::lock_guard<std::mutex> lock(clients_mutex);
     for (const auto &client : clients) {
-        close(client.second);
+        close(client.first);
     }
 
     for (auto &worker : workers) {
@@ -48,12 +48,18 @@ void Server::run() {
     std::cout << "Server is listening on port " << ntohs(SERVER_ADDR.sin_port) << std::endl;
     std::thread(&Server::acceptConnections, this).detach();
 
-    std::unique_lock<std::mutex> lock(cv_m);
     while (true) {
+        std::unique_lock<std::mutex> lock(cv_m);
         cv.wait(lock, [this]{ return !client_sockets.empty(); });
-        int client_socket = client_sockets.back();
-        client_sockets.pop_back();
-        workers.emplace_back(Worker(client_socket, *this));
+
+        while (!client_sockets.empty()) {
+            int client_socket = client_sockets.back();
+            client_sockets.pop_back();
+            workers.emplace_back([client_socket, this] {
+                Worker worker(client_socket, *this);
+                worker();
+            });
+        }
     }
 }
 
@@ -67,38 +73,51 @@ void Server::acceptConnections() {
             continue;
         }
 
-        std::lock_guard<std::mutex> lock(cv_m);
-        client_sockets.push_back(client_socket);
+        {
+            std::lock_guard<std::mutex> lock(cv_m);
+            client_sockets.push_back(client_socket);
+        }
+
         cv.notify_one();
     }
 }
 
 void Server::RegisterClient(const std::string &phone_number, int client_socket) {
     std::lock_guard<std::mutex> lock(clients_mutex);
-    clients[phone_number] = client_socket;
+    clients[client_socket] = phone_number;
     std::cout << "Registered client with phone number: " << phone_number << " and socket: " << client_socket << std::endl;
 }
 
 bool Server::SendMessage(const std::string &phone_number, const std::string &message) {
     std::lock_guard<std::mutex> lock(clients_mutex);
-    auto it = clients.find(phone_number);
-
-    if (it != clients.end()) {
-        int recipient_socket = it->second;
-        std::string full_message = message + "\n"; // Add a newline character
-        ssize_t sent = send(recipient_socket, full_message.c_str(), full_message.size(), 0);
-        if (sent == -1) {
-            std::cerr << "Failed to send message to " << phone_number << ": " << strerror(errno) << std::endl;
-        } else {
-            std::cout << "Sent message to " << phone_number << ": " << message << std::endl;
+    for (const auto &client : clients) {
+        if (client.second == phone_number) {
+            int recipient_socket = client.first;
+            std::string full_message = message + "\n"; // Add a newline character
+            ssize_t sent = send(recipient_socket, full_message.c_str(), full_message.size(), 0);
+            if (sent == -1) {
+                std::cerr << "Failed to send message to " << phone_number << ": " << strerror(errno) << std::endl;
+            } else {
+                std::cout << "Sent message to " << phone_number << ": " << message << std::endl;
+            }
+            return true;
         }
-        return true;
-    } else {
-        std::cerr << "Client with phone number " << phone_number << " not found" << std::endl;
-        return false;
     }
+    std::cerr << "Client with phone number " << phone_number << " not found" << std::endl;
+    return false;
 }
 
+void Server::removeClient(const int client_sock) {
+    std::lock_guard<std::mutex> lock(clients_mutex);
+    auto it = clients.find(client_sock);
+    if (it != clients.end()) {
+        clients.erase(it);
+        close(client_sock);
+        std::cout << "Removed client with socket: " << client_sock << std::endl;
+    } else {
+        std::cerr << "Client with socket " << client_sock << " not found" << std::endl;
+    }
+}
 
 void Server::SendResponse(int client_socket, const std::string &response) {
     ssize_t sent = send(client_socket, response.c_str(), response.size(), 0);

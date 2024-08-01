@@ -20,7 +20,7 @@ void Worker::handleClient() {
             close(client_socket);
             break;
         } else if (n == 0) {
-            // Client disconnected
+            server.removeClient(client_socket);
             std::cout << "Client disconnected on socket " << client_socket << std::endl;
             close(client_socket);
             break;

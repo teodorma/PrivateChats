@@ -18,6 +18,9 @@ public:
     ~Client();
 
     static std::istringstream Get_User_Key(const std::string &PHONE);
+    static std::istringstream Get_Messages(const std::string &PHONE, std::vector<std::string> &messages);
+
+    static std::istringstream lookUp(const std::string &Phone);
 };
 
 
