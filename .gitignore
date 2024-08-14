@@ -1,5 +1,0 @@
-*.log
-*.ninja_depts
-*.ninja_log
-*.cpp.o
-/cmake-build-debug
