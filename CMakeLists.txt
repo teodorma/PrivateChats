@@ -17,11 +17,15 @@ pkg_check_modules(JSONCPP jsoncpp)
 find_path(SQLCIPHER_INCLUDE_DIR NAMES sqlite3.h PATH_SUFFIXES sqlcipher)
 find_library(SQLCIPHER_LIBRARY NAMES sqlcipher)
 
+# Find zlib package
+find_package(ZLIB REQUIRED)
+
 # Include directories
 include_directories(${GMP_INCLUDE_DIR})
 include_directories(${OPENSSL_INCLUDE_DIR})
 include_directories(${SQLCIPHER_INCLUDE_DIR})
 include_directories(${JSONCPP_INCLUDE_DIRS})
+include_directories(${ZLIB_INCLUDE_DIRS})
 
 # Add executable
 add_executable(Server
@@ -42,6 +46,7 @@ target_link_libraries(Server
         ${OPENSSL_LIBRARIES}
         ${JSONCPP_LIBRARIES}
         ${SQLCIPHER_LIBRARY}
+        ZLIB::ZLIB  # Link zlib library
         dl  # Required for dynamic linking
         pthread  # Required for threading
 )

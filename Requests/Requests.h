@@ -17,7 +17,10 @@ public:
     enum TYPES {REGISTER, DELETE, ALL_DATA, PURGE, MESSAGE, GET_USER_KEY, GET_MESSAGES, CONNECT};
 
     Requests(std::istringstream& data, Server& server, int client_socket);
-    std::string Process();
+    std::vector<std::string> Process();
+    static std::string compressString(const std::string &str);
+
+
     static TYPES getType(const Json::Value& STR);
     ~Requests();
 
@@ -26,7 +29,6 @@ private:
     Json::Value Request;
     Server& server; // Reference to the Server instance
     int client_socket;
-
 };
 
 #endif // SERVER_REQUESTS_H

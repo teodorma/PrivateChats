@@ -20,7 +20,7 @@ public:
     explicit Server(int PORT);
     ~Server();
     void run();
-    void RegisterClient(const std::string &phone_number, int client_socket);
+    void ConnectClient(const std::string &phone_number, int client_socket);
     bool SendMessage(const std::string &phone_number, const std::string &message);
     static void SendResponse(int client_socket, const std::string &response);
     void removeClient(const int client_sock);

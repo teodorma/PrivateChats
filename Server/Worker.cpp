@@ -31,6 +31,8 @@ void Worker::handleClient() {
         auto request = Requests(stream, server, client_socket);
 
         auto RESPONSE = request.Process();
-        Server::SendResponse(client_socket, RESPONSE);
+        for(const auto& chunk : RESPONSE){
+           Server::SendResponse(client_socket, chunk);
+        }
     }
 }

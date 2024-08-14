@@ -82,7 +82,7 @@ void Server::acceptConnections() {
     }
 }
 
-void Server::RegisterClient(const std::string &phone_number, int client_socket) {
+void Server::ConnectClient(const std::string &phone_number, int client_socket) {
     std::lock_guard<std::mutex> lock(clients_mutex);
     clients[client_socket] = phone_number;
     std::cout << "Registered client with phone number: " << phone_number << " and socket: " << client_socket << std::endl;
@@ -93,8 +93,8 @@ bool Server::SendMessage(const std::string &phone_number, const std::string &mes
     for (const auto &client : clients) {
         if (client.second == phone_number) {
             int recipient_socket = client.first;
-            std::string full_message = message + "\n"; // Add a newline character
-            ssize_t sent = send(recipient_socket, full_message.c_str(), full_message.size(), 0);
+            std::string full = message + "\n";
+            ssize_t sent = send(recipient_socket, full.c_str(), full.size(), 0);
             if (sent == -1) {
                 std::cerr << "Failed to send message to " << phone_number << ": " << strerror(errno) << std::endl;
             } else {
@@ -120,10 +120,12 @@ void Server::removeClient(const int client_sock) {
 }
 
 void Server::SendResponse(int client_socket, const std::string &response) {
-    ssize_t sent = send(client_socket, response.c_str(), response.size(), 0);
+    std::string full_response = response + "\n";
+    ssize_t sent = send(client_socket, full_response.c_str(), full_response.size(), 0);
     if (sent == -1) {
         std::cerr << "Failed to send response to client socket " << client_socket << ": " << strerror(errno) << std::endl;
     } else {
         std::cout << "Sent response to client socket " << client_socket << ": " << response << std::endl;
     }
+    std::cout << std::flush;
 }
