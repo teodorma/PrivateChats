@@ -1,0 +1,3 @@
+/home/maciucateodor/Project/PrivateChats/server/PortMaster/cmake-build-debug/CMakeFiles/Server.dir
+/home/maciucateodor/Project/PrivateChats/server/PortMaster/cmake-build-debug/CMakeFiles/edit_cache.dir
+/home/maciucateodor/Project/PrivateChats/server/PortMaster/cmake-build-debug/CMakeFiles/rebuild_cache.dir

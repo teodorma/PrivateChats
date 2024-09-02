@@ -2,10 +2,13 @@ package com.example.privatechats.ui.home.contacts;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.content.ContentValues;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.os.Bundle;
 import android.provider.ContactsContract;
+import android.util.Log;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -16,6 +19,8 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.example.privatechats.R;
+import com.example.privatechats.database.MessengerContract;
+import com.example.privatechats.database.MessengerDbHelper;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -71,6 +76,8 @@ public class ContactsActivity extends AppCompatActivity {
         );
 
         Set<String> phoneNumberSet = new HashSet<>();
+        MessengerDbHelper dbHelper = new MessengerDbHelper(this);
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
 
         if (cursor != null) {
             while (cursor.moveToNext()) {
@@ -81,12 +88,31 @@ public class ContactsActivity extends AppCompatActivity {
                         cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
                 );
 
-                if (phoneNumberSet.add(phoneNumber)) {
-                    contactList.add(new Contact(name, phoneNumber));
+                String cleanedPhoneNumber = phoneNumber.replaceAll("\\s", ""); // Remove all spaces
+
+                if (cleanedPhoneNumber.startsWith("+4")) {
+                    cleanedPhoneNumber = cleanedPhoneNumber.substring(2);
+                }
+
+                if (phoneNumberSet.add(cleanedPhoneNumber)) {
+                    contactList.add(new Contact(name, cleanedPhoneNumber));
+
+                    ContentValues values = new ContentValues();
+                    values.put(MessengerContract.ContactsEntry.COLUMN_NAME_NAME, name);
+                    values.put(MessengerContract.ContactsEntry.COLUMN_NAME_PHONE, cleanedPhoneNumber);
+
+                    long newRowId = db.insert(MessengerContract.ContactsEntry.TABLE_NAME, null, values);
+                    if (newRowId == -1) {
+                        Log.d("Database", "Error saving contact to database.");
+                    } else {
+                        Log.d("Database", "Contact saved to database with ID: " + newRowId);
+                    }
                 }
             }
             cursor.close();
         }
+
+        db.close();
 
         contactList.sort(new Comparator<Contact>() {
             @Override
@@ -97,7 +123,6 @@ public class ContactsActivity extends AppCompatActivity {
 
         contactAdapter = new ContactAdapter(this, contactList);
         recyclerView.setAdapter(contactAdapter);
-
     }
 
 }

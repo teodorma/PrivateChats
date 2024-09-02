@@ -1,0 +1,10 @@
+# ninja log v6
+7	2611	1723666148050554999	CMakeFiles/Server.dir/Server/Server.cpp.o	f42373a47d6a69b5
+3	2663	1723666148046554959	CMakeFiles/Server.dir/DB/DB.cpp.o	db328898fd059584
+9	2870	1723666148053555029	CMakeFiles/Server.dir/DB/Encryption/Encryption.cpp.o	7cfc29f40edddbfd
+15	2940	1723666148058555080	CMakeFiles/Server.dir/DB/Operations/Admin.cpp.o	4774273d2c619228
+2	3135	1723666148046554959	CMakeFiles/Server.dir/main.cpp.o	a4cfeef1a7c7df2c
+5	3254	1723666148048554979	CMakeFiles/Server.dir/Requests/Requests.cpp.o	b482010e56d5d768
+2615	4335	1723666150658581268	CMakeFiles/Server.dir/DB/Operations/Client.cpp.o	94a022d47f1226d
+2665	4344	1723666150708581772	CMakeFiles/Server.dir/Server/Worker.cpp.o	1c99ab6ea2f24f9e
+4344	4549	1723666152387598683	Server	16ffe32113a3c695
