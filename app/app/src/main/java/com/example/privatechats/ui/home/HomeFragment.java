@@ -1,10 +1,13 @@
 package com.example.privatechats.ui.home;
 
 import android.annotation.SuppressLint;
+import android.content.ContentResolver;
 import android.content.Intent;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
+import android.net.Uri;
 import android.os.Bundle;
+import android.provider.ContactsContract;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -18,7 +21,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.example.privatechats.database.MessengerContract;
 import com.example.privatechats.database.MessengerDbHelper;
 import com.example.privatechats.databinding.FragmentHomeBinding;
-import com.example.privatechats.ui.home.chat.ChatDetailActivity; // Import your chat detail activity or fragment
+import com.example.privatechats.ui.home.chat.ChatDetailActivity;
 import com.example.privatechats.ui.home.chat.Chat;
 import com.example.privatechats.ui.home.chat.ChatAdapter;
 
@@ -56,34 +59,36 @@ public class HomeFragment extends Fragment {
 
     @SuppressLint("NotifyDataSetChanged")
     private void loadChats() {
-        chatList.clear(); // Clear the list to avoid duplication
+        chatList.clear();
 
         MessengerDbHelper dbHelper = new MessengerDbHelper(getContext());
         SQLiteDatabase db = dbHelper.getReadableDatabase();
 
-
         String query = "SELECT " +
                 "MAX(" + MessengerContract.MessagesEntry.COLUMN_NAME_TIMESTAMP + ") AS last_timestamp, " +
                 MessengerContract.MessagesEntry.COLUMN_NAME_MESSAGE + ", " +
-                MessengerContract.MessagesEntry.COLUMN_NAME_SENDER_ID + ", " +
-                MessengerContract.MessagesEntry.COLUMN_NAME_RECEIVER_ID +
+                MessengerContract.MessagesEntry.COLUMN_NAME_SENDER_PHONE + ", " +
+                MessengerContract.MessagesEntry.COLUMN_NAME_RECEIVER_PHONE +
                 " FROM " + MessengerContract.MessagesEntry.TABLE_NAME +
                 " GROUP BY " +
-                " CASE WHEN " + MessengerContract.MessagesEntry.COLUMN_NAME_SENDER_ID + " = 'Me' THEN " +
-                MessengerContract.MessagesEntry.COLUMN_NAME_RECEIVER_ID +
-                " ELSE " + MessengerContract.MessagesEntry.COLUMN_NAME_SENDER_ID + " END" +
+                " CASE WHEN " + MessengerContract.MessagesEntry.COLUMN_NAME_SENDER_PHONE + " = 'Me' THEN " +
+                MessengerContract.MessagesEntry.COLUMN_NAME_RECEIVER_PHONE +
+                " ELSE " + MessengerContract.MessagesEntry.COLUMN_NAME_SENDER_PHONE + " END" +
                 " ORDER BY last_timestamp DESC";
 
         Cursor cursor = db.rawQuery(query, null);
         while (cursor.moveToNext()) {
-            @SuppressLint("Range") String sender = cursor.getString(cursor.getColumnIndex(MessengerContract.MessagesEntry.COLUMN_NAME_SENDER_ID));
-            @SuppressLint("Range") String receiver = cursor.getString(cursor.getColumnIndex(MessengerContract.MessagesEntry.COLUMN_NAME_RECEIVER_ID));
+            @SuppressLint("Range") String senderPhone = cursor.getString(cursor.getColumnIndex(MessengerContract.MessagesEntry.COLUMN_NAME_SENDER_PHONE));
+            @SuppressLint("Range") String receiverPhone = cursor.getString(cursor.getColumnIndex(MessengerContract.MessagesEntry.COLUMN_NAME_RECEIVER_PHONE));
             @SuppressLint("Range") String messageText = cursor.getString(cursor.getColumnIndex(MessengerContract.MessagesEntry.COLUMN_NAME_MESSAGE));
 
-            // Determine who the other contact is
-            String contactName = sender.equals("Me") ? receiver : sender;
+            // Determine the contact's phone number
+            String contactPhone = senderPhone.equals("Me") ? receiverPhone : senderPhone;
 
-            chatList.add(new Chat(contactName, messageText));
+            // Retrieve the contact name if possible
+            String contactName = getContactNameFromPhoneNumber(contactPhone);
+
+            chatList.add(new Chat(contactName, contactPhone, messageText)); // Add contact phone number to Chat
         }
         cursor.close();
         db.close();
@@ -91,10 +96,27 @@ public class HomeFragment extends Fragment {
         chatAdapter.notifyDataSetChanged();
     }
 
+    @SuppressLint("Range")
+    private String getContactNameFromPhoneNumber(String phoneNumber) {
+        String contactName = phoneNumber; // Default to phone number if no name found
+        ContentResolver contentResolver = getContext().getContentResolver();
+        Uri uri = Uri.withAppendedPath(ContactsContract.PhoneLookup.CONTENT_FILTER_URI, Uri.encode(phoneNumber));
+        Cursor cursor = contentResolver.query(uri, new String[]{ContactsContract.PhoneLookup.DISPLAY_NAME}, null, null, null);
+
+        if (cursor != null) {
+            if (cursor.moveToFirst()) {
+                contactName = cursor.getString(cursor.getColumnIndex(ContactsContract.PhoneLookup.DISPLAY_NAME));
+            }
+            cursor.close();
+        }
+        return contactName;
+    }
+
 
     private void openChatDetail(Chat chat) {
         Intent intent = new Intent(getActivity(), ChatDetailActivity.class);
         intent.putExtra("contactName", chat.getContactName());
+        intent.putExtra("contactPhoneNumber", chat.getContactPhone()); // Pass the phone number as well
         startActivity(intent);
     }
 

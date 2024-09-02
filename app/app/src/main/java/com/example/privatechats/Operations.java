@@ -1,8 +1,14 @@
 package com.example.privatechats;
 
+import android.content.ContentValues;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.util.Log;
+
+import com.example.privatechats.database.MessengerContract;
+import com.example.privatechats.database.MessengerDbHelper;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -24,12 +30,13 @@ import java.security.spec.RSAPrivateKeySpec;
 import java.security.spec.RSAPublicKeySpec;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.zip.DataFormatException;
 
 public class Operations {
-    private String SERVER_ADDRESS;
+    private final String SERVER_ADDRESS;
     private static final int SERVER_PORT = 8080;
     private static Operations instance;
     private Socket socket;
@@ -37,16 +44,15 @@ public class Operations {
     private BufferedReader in;
 
     private Context context;
-    private SharedPreferences sharedPreferences;
+    private final SharedPreferences sharedPreferences;
 
     private static final BlockingQueue<JSONObject> requestQueue = new LinkedBlockingQueue<>();
+    private static final Map<String, BlockingQueue<JSONObject>> messageQueues = new HashMap<>();
 
     private BigInteger myPublicKeyModulus;
     private BigInteger myPublicKeyExponent;
     private BigInteger myPrivateKeyModulus;
     private BigInteger myPrivateKeyExponent;
-
-    private Thread listeningThread;
 
     private BigInteger serverPublicKeyModulus;
     private static final BigInteger serverPublicExponent = BigInteger.valueOf(65537);
@@ -100,11 +106,11 @@ public class Operations {
 
 
     public void startListeningForMessages() {
-        listeningThread = new Thread(this::listenForMessages);
+        Thread listeningThread = new Thread(this::listener);
         listeningThread.start();
     }
 
-    private void listenForMessages() {
+    private void listener() {
         try {
             if (in == null) {
                 Log.e("Operations", "BufferedReader is not initialized. Cannot listen for messages.");
@@ -126,6 +132,12 @@ public class Operations {
                     Log.d("Operations", "Received message decrypted chunk: " + response);
 
                     JSONObject responseJson = new JSONObject(response);
+                    if (responseJson.has("MESSAGE")) {
+                        addToMessageQueue(responseJson, (String)responseJson.get("PHONE"));
+                        if(responseJson.has("END")){
+                            processMessageChunks((String)responseJson.get("PHONE"), "jonny");
+                        }
+                    }
                     if (responseJson.has("CHUNK")) {
                         String messageChunk = responseJson.getString("CHUNK");
                         int chunkNumber = responseJson.getInt("CHUNK_NUMBER");
@@ -139,10 +151,8 @@ public class Operations {
                             JSONObject d = new JSONObject(stringBuilder.toString());
                             Log.d("Operations", "Assembled message: " + d);
 
-                            if (d.has("MESSAGE")) {
-                                // Handle the assembled message
-                            } else if (d.has("RESPONSE") || d.has("KEY")) {
-                                addToQueue(d);
+                            if (d.has("RESPONSE") || d.has("KEY")) {
+                                addToResponseQueue(d);
                                 stringBuilder.setLength(0);
                                 receivedChunks = 0;
                             }
@@ -185,8 +195,12 @@ public class Operations {
         return requestQueue.take();
     }
 
-    private void addToQueue(JSONObject response) {
+    private void addToResponseQueue(JSONObject response) {
         requestQueue.add(response);
+    }
+
+    private void addToMessageQueue(JSONObject message, String senderPhone) {
+        messageQueues.computeIfAbsent(senderPhone, k -> new LinkedBlockingQueue<>()).add(message);
     }
 
     private void generateRSAKeyPair() throws NoSuchAlgorithmException, InvalidKeySpecException {
@@ -226,24 +240,20 @@ public class Operations {
     }
 
     public void sendMessage(String recipientPhone, String senderPhone, String message) throws IOException, GeneralSecurityException, JSONException, InterruptedException, DataFormatException {
-        BigInteger recipientPublicKeyModulus = PublicKeys.get(recipientPhone);
+        String recipientPublicKeyModulus = getPublicKeyByPhone(recipientPhone);
 
         if (recipientPublicKeyModulus == null) {
             requestPublicKey(recipientPhone, senderPhone);
-
-            recipientPublicKeyModulus = PublicKeys.get(recipientPhone);
-            if (recipientPublicKeyModulus == null) {
-                throw new RuntimeException("Failed to retrieve public key for recipient: " + recipientPhone);
-            }
         }
-
-        Log.d("Operations", "Encrypting message with recipient's " + senderPhone + " recipient public key: " + recipientPublicKeyModulus.toString(16));
-        String encryptedMessage = encrypt(message, recipientPublicKeyModulus);
+        recipientPublicKeyModulus = getPublicKeyByPhone(recipientPhone);
+        BigInteger userKey = new BigInteger(recipientPublicKeyModulus, 16);
+        Log.d("Operations", "Encrypting message with recipient's " + senderPhone + " recipient public key: " + userKey.toString(16));
+        String encryptedMessage = encrypt(message, userKey);
         sendEncryptedMessageInChunks(senderPhone, recipientPhone, encryptedMessage);
     }
 
     private void sendEncryptedMessageInChunks(String senderPhone, String recipientPhone, String encryptedMessage) throws IOException, JSONException, GeneralSecurityException, DataFormatException, InterruptedException {
-        int chunkSize = 180;
+        int chunkSize = 160;
         int messageLength = encryptedMessage.length();
 
         for (int i = 0; i < messageLength; i += chunkSize) {
@@ -256,7 +266,7 @@ public class Operations {
             String messageChunk = encryptedMessage.substring(i, end);
 
             if (end == messageLength) {
-                messageChunk += "<END>";
+                chunkJson.put("END","TRUE");
             }
             chunkJson.put("MESSAGE", messageChunk);
 
@@ -264,6 +274,50 @@ public class Operations {
             getResponse();
         }
     }
+
+
+    public String getPublicKeyByPhone(String phoneNumber) {
+        MessengerDbHelper dbHelper = new MessengerDbHelper(context);
+        SQLiteDatabase db = dbHelper.getReadableDatabase();
+
+        String[] projection = {
+                MessengerContract.KeyEntry.COLUMN_NAME_CONTACT_KEY
+        };
+
+        String selection = MessengerContract.KeyEntry.COLUMN_NAME_PHONE + " = ?";
+        String[] selectionArgs = { phoneNumber };
+
+        Cursor cursor = null;
+        String publicKey = null;
+
+        try {
+            cursor = db.query(
+                    MessengerContract.KeyEntry.TABLE_NAME,
+                    projection,
+                    selection,
+                    selectionArgs,
+                    null,
+                    null,
+                    null
+            );
+
+            if (cursor != null && cursor.moveToFirst()) {
+                publicKey = cursor.getString(
+                        cursor.getColumnIndexOrThrow(MessengerContract.KeyEntry.COLUMN_NAME_CONTACT_KEY)
+                );
+            }
+        } catch (Exception e) {
+            Log.e("getPublicKeyByPhone", "Error retrieving public key for phone number: " + phoneNumber, e);
+        } finally {
+            if (cursor != null) {
+                cursor.close();
+            }
+            db.close();
+        }
+
+        return publicKey;
+    }
+
 
 
     public void requestPublicKey(String phoneNumber, String phone) throws IOException, GeneralSecurityException, JSONException, InterruptedException {
@@ -277,9 +331,80 @@ public class Operations {
         JSONObject response = getResponse();
         if (response.has("KEY")) {
             BigInteger publicKeyModulus = new BigInteger(response.getString("KEY"), 16);
-            PublicKeys.put(phoneNumber, publicKeyModulus);
+            savePublicKeyToDatabase(phoneNumber, publicKeyModulus.toString(16));
         }
     }
+
+
+    private void savePublicKeyToDatabase(String phoneNumber, String publicKey) {
+        MessengerDbHelper dbHelper = new MessengerDbHelper(context);
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+        ContentValues values = new ContentValues();
+        values.put(MessengerContract.KeyEntry.COLUMN_NAME_PHONE, phoneNumber);
+        values.put(MessengerContract.KeyEntry.COLUMN_NAME_CONTACT_KEY, publicKey);
+
+        try {
+            long newRowId = db.insertWithOnConflict(
+                    MessengerContract.KeyEntry.TABLE_NAME,
+                    null,
+                    values,
+                    SQLiteDatabase.CONFLICT_REPLACE
+            );
+
+            if (newRowId == -1) {
+                Log.d("Database", "Error saving public key to database for phone: " + phoneNumber);
+            } else {
+                Log.d("Database", "Public key saved to database with ID: " + newRowId + " for phone: " + phoneNumber);
+            }
+        } catch (Exception e) {
+            Log.e("savePublicKeyToDatabase", "Exception occurred while saving public key for phone: " + phoneNumber, e);
+        } finally {
+            db.close();
+        }
+    }
+
+
+
+    public void processMessageChunks(String senderPhone, String receiverPhone) throws JSONException {
+        BlockingQueue<JSONObject> queue = messageQueues.get(senderPhone);
+        if (queue == null) {
+            Log.e("Operations", "No message queue found for sender: " + senderPhone);
+            return;
+        }
+
+        StringBuilder fullMessage = new StringBuilder();
+        JSONObject messageChunk;
+        while ((messageChunk = queue.poll()) != null) {
+            if (messageChunk.has("MESSAGE")) {
+                fullMessage.append(messageChunk.getString("MESSAGE"));
+            }
+        }
+
+        String decryptedMessage = decrypt(String.valueOf(fullMessage));
+        Log.d("Operations", "Processed complete message: " + decryptedMessage + " from " + senderPhone);
+
+        long timestamp = System.currentTimeMillis();
+
+        MessengerDbHelper dbHelper = new MessengerDbHelper(context);
+        SQLiteDatabase db = dbHelper.getWritableDatabase();
+
+        ContentValues values = new ContentValues();
+        values.put(MessengerContract.MessagesEntry.COLUMN_NAME_SENDER_PHONE, senderPhone);
+        values.put(MessengerContract.MessagesEntry.COLUMN_NAME_RECEIVER_PHONE, receiverPhone);
+        values.put(MessengerContract.MessagesEntry.COLUMN_NAME_MESSAGE, decryptedMessage);
+        values.put(MessengerContract.MessagesEntry.COLUMN_NAME_TIMESTAMP, timestamp);
+
+        long newRowId = db.insert(MessengerContract.MessagesEntry.TABLE_NAME, null, values);
+        if (newRowId == -1) {
+            Log.d("Operations", "Error saving message to database.");
+        } else {
+            Log.d("Operations", "Message saved to database with ID: " + newRowId);
+        }
+
+        db.close();
+    }
+
 
 
     public boolean connectToServer() {
