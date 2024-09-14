@@ -1,21 +1,17 @@
-//
-// Created by maciucateodor on 7/24/24.
-//
-
 #include "Admin.h"
 
 std::istringstream Admin::AllData(const std::string& pass) {
-    if(pass != DB::PASSWORD){
+    if(pass != Database::PASSWORD){
         return std::istringstream(R"({"RESPONSE":"FAILURE"})");
     }
-    std::lock_guard<std::mutex> guard(DB::db_mutex);
+    std::lock_guard<std::mutex> guard(Database::db_mutex);
 
     const char* sql = "SELECT phone_number, name, key FROM client;";
     sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(DB::DataBase, sql, -1, &stmt, nullptr);
+    int rc = sqlite3_prepare_v2(Database::DataBase, sql, -1, &stmt, nullptr);
 
     if (rc != SQLITE_OK) {
-        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(DB::DataBase) << std::endl;
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(Database::DataBase) << std::endl;
         return std::istringstream(R"({"RESPONSE":"FAILURE"})");;
     }
 
@@ -29,7 +25,7 @@ std::istringstream Admin::AllData(const std::string& pass) {
     }
 
     if (rc != SQLITE_DONE) {
-        std::cerr << "Failed to fetch data: " << sqlite3_errmsg(DB::DataBase) << std::endl;
+        std::cerr << "Failed to fetch data: " << sqlite3_errmsg(Database::DataBase) << std::endl;
     }
 
     sqlite3_finalize(stmt);
@@ -39,19 +35,18 @@ std::istringstream Admin::AllData(const std::string& pass) {
 
 
 
-
 std::istringstream Admin::Delete(const std::string& PHONE, const std::string& pass) {
-    if(pass != DB::PASSWORD){
+    if(pass != Database::PASSWORD){
         return std::istringstream(R"({"RESPONSE":"FAILURE"})");
     }
-    std::lock_guard<std::mutex> guard(DB::db_mutex);
+    std::lock_guard<std::mutex> guard(Database::db_mutex);
 
     std::string sql = "DELETE FROM client WHERE phone_number = ?;";
     sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(DB::DataBase, sql.c_str(), -1, &stmt, nullptr);
+    int rc = sqlite3_prepare_v2(Database::DataBase, sql.c_str(), -1, &stmt, nullptr);
 
     if (rc != SQLITE_OK) {
-        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(DB::DataBase) << std::endl;
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(Database::DataBase) << std::endl;
         return std::istringstream(R"({"RESPONSE":"FAILURE"})");
     }
 
@@ -59,7 +54,7 @@ std::istringstream Admin::Delete(const std::string& PHONE, const std::string& pa
 
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
-        std::cerr << "Failed to delete data: " << sqlite3_errmsg(DB::DataBase) << std::endl;
+        std::cerr << "Failed to delete data: " << sqlite3_errmsg(Database::DataBase) << std::endl;
         sqlite3_finalize(stmt);
         return std::istringstream(R"({"RESPONSE":"FAILURE"})");
     }
@@ -71,14 +66,15 @@ std::istringstream Admin::Delete(const std::string& PHONE, const std::string& pa
 
 
 std::istringstream Admin::Purge(const std::string& pass){
-    if(pass != DB::PASSWORD){
+    if(pass != Database::PASSWORD){
         return std::istringstream(R"({"RESPONSE":"FAILURE"})");
     }
     remove(DATABASE_NAME);
 
-    sqlite3_close(DB::DataBase);
+    sqlite3_close(Database::DataBase);
     return std::istringstream(R"({"RESPONSE":"PURGE_SUCCESS"})");
 }
+
 
 
 Admin::~Admin() = default;

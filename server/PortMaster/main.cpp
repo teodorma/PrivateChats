@@ -1,6 +1,6 @@
 #include <iostream>
 #include "Server/Server.h"
-#include "DB/DB.h"
+#include "DB/Database.h"
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
@@ -10,7 +10,9 @@ int main(int argc, char* argv[]) {
 
     int PORT_NO = std::stoi(argv[1]);
     Server server(PORT_NO);
-    DB Database;
+    RSA_INSTANCE* rsa = RSA_INSTANCE::getInstance();
+    std::cout << *rsa;
+    Database* Database = Database::getInstance();
 
     server.run();
 

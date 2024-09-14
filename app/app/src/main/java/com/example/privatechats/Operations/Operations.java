@@ -2,6 +2,7 @@ package com.example.privatechats;
 
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
@@ -400,6 +401,9 @@ public class Operations {
             Log.d("Operations", "Error saving message to database.");
         } else {
             Log.d("Operations", "Message saved to database with ID: " + newRowId);
+
+            Intent intent = new Intent("com.example.privatechats.NEW_MESSAGE");
+            context.sendBroadcast(intent);
         }
 
         db.close();
@@ -431,5 +435,4 @@ public class Operations {
             Log.e("Operations", "Error while disconnecting.", e);
         }
     }
-
 }

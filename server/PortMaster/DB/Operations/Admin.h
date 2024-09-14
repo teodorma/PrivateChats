@@ -1,10 +1,6 @@
-//
-// Created by maciucateodor on 7/24/24.
-//
-
 #ifndef SERVER_ADMIN_H
 #define SERVER_ADMIN_H
-#include "../DB.h"
+#include "../Database.h"
 
 class Admin{
 public:

@@ -4,30 +4,33 @@
 #include <string>
 #include <system_error>
 #include <iostream>
-#include "../DB/DB.h"
+#include "../DB/Database.h"
+#include "../DB/Encryption/RSA.h"
+#include "../DB/Encryption/AES.h"
 #include "../Server/Server.h"
 #include <json/json.h>
 #include <utility>
 
-// Forward declare the Server class to avoid cyclic dependency
 class Server;
 
-class Requests : Encryption {
+class Requests {
+private:
+    Json::Value Request;
+    Server& server;
+    int client_socket;
+    std::string PHONE;
+    std::string NAME;
+    std::string KEY;
+    std::string RECIPIENT_PHONE;
+    std::string PASSWORD;
+    std::string TYPE;
 public:
+    Requests(const Json::Value& Request, Server& server, int client_socket,const  std::string& KEY);
     enum TYPES {REGISTER, DELETE, ALL_DATA, PURGE, MESSAGE, GET_USER_KEY, GET_MESSAGES, CONNECT};
 
-    Requests(std::istringstream& data, Server& server, int client_socket);
-    std::vector<std::string> Process();
-
-
-    static TYPES getType(const Json::Value& STR);
+    std::string Process();
+    TYPES getType();
     ~Requests();
-
-private:
-    static bool isUpdateRequest(const std::string& s);
-    Json::Value Request;
-    Server& server; // Reference to the Server instance
-    int client_socket;
 };
 
 #endif // SERVER_REQUESTS_H
