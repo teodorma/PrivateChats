@@ -1,5 +1,8 @@
 #include "Server.h"
 #include "Worker.h"
+#include "../DB/Encryption/AES.h"
+
+std::unordered_map<std::string, std::pair<int, std::string>> Server::clients;
 
 Server::Server(int PORT) {
     try {
@@ -18,26 +21,14 @@ Server::Server(int PORT) {
 
         std::cout << "Server initialized and bound to port " << PORT << std::endl;
     } catch (const std::system_error& error) {
-        std::cerr << "Caught system error: " << error.code() << "\n"
+        std::cerr << "Caught system error in Server.cpp at line 22: " << error.code() << "\n"
                   << error.what() << "\n"
                   << errno << "\n";
+        throw;
     }
 }
 
-Server::~Server() {
-    close(SOCKET);
 
-    std::lock_guard<std::mutex> lock(clients_mutex);
-    for (const auto &client : clients) {
-        close(client.first);
-    }
-
-    for (auto &worker : workers) {
-        if (worker.joinable()) {
-            worker.join();
-        }
-    }
-}
 
 void Server::run() {
     if (listen(SOCKET, 128) == -1) {
@@ -63,37 +54,42 @@ void Server::run() {
     }
 }
 
+
+
 void Server::acceptConnections() {
     while (true) {
-        socklen_t addrlen = sizeof(SERVER_ADDR);
+        socklen_t address_length = sizeof(SERVER_ADDR);
         sockaddr_in client_addr{};
-        int client_socket = accept(SOCKET, (struct sockaddr*)&client_addr, &addrlen);
+        int client_socket = accept(SOCKET, (struct sockaddr*)&client_addr, &address_length);
+
         if (client_socket == -1) {
             std::cerr << "Error in accept function: " << std::strerror(errno) << std::endl;
             continue;
         }
-
-        {
+        else{
             std::lock_guard<std::mutex> lock(cv_m);
             client_sockets.push_back(client_socket);
         }
-
         cv.notify_one();
     }
 }
 
-void Server::ConnectClient(const std::string &phone_number, int client_socket) {
+
+
+void Server::ConnectClient(const std::string &phone_number, const std::string &aes_key, int client_socket) {
     std::lock_guard<std::mutex> lock(clients_mutex);
-    clients[client_socket] = phone_number;
+    clients[phone_number] = std::make_pair(client_socket, aes_key);
     std::cout << "Registered client with phone number: " << phone_number << " and socket: " << client_socket << std::endl;
 }
+
+
 
 bool Server::SendMessage(const std::string &phone_number, const std::string &message) {
     std::lock_guard<std::mutex> lock(clients_mutex);
     for (const auto &client : clients) {
-        if (client.second == phone_number) {
-            int recipient_socket = client.first;
-            std::string full = message + "\n";
+        if (client.first == phone_number) {
+            int recipient_socket = client.second.first;
+            std::string full = AES::encrypt(clients[phone_number].second, message) + "\n";
             ssize_t sent = send(recipient_socket, full.c_str(), full.size(), 0);
             if (sent == -1) {
                 std::cerr << "Failed to send message to " << phone_number << ": " << strerror(errno) << std::endl;
@@ -107,17 +103,27 @@ bool Server::SendMessage(const std::string &phone_number, const std::string &mes
     return false;
 }
 
+
+
 void Server::removeClient(const int client_sock) {
     std::lock_guard<std::mutex> lock(clients_mutex);
-    auto it = clients.find(client_sock);
+
+    auto it = std::find_if(clients.begin(), clients.end(),
+                           [client_sock](const auto& pair) {
+                               return pair.second.first == client_sock;
+                           });
+
     if (it != clients.end()) {
+        close(it->second.first);
+        std::cout << "Removed client with socket: " << it->second.first << std::endl;
         clients.erase(it);
-        close(client_sock);
-        std::cout << "Removed client with socket: " << client_sock << std::endl;
     } else {
-        std::cerr << "Client with socket " << client_sock << " not found" << std::endl;
+        std::cout << "Client with socket " << client_sock << " not found." << std::endl;
     }
 }
+
+
+
 
 void Server::SendResponse(int client_socket, const std::string &response) {
     std::string full_response = response + "\n";
@@ -128,4 +134,21 @@ void Server::SendResponse(int client_socket, const std::string &response) {
         std::cout << "Sent response to client socket " << client_socket << ": " << response << std::endl;
     }
     std::cout << std::flush;
+}
+
+
+
+Server::~Server() {
+    close(SOCKET);
+
+    std::lock_guard<std::mutex> lock(clients_mutex);
+    for (const auto &client : clients) {
+        close(client.second.first);
+    }
+
+    for (auto &worker : workers) {
+        if (worker.joinable()) {
+            worker.join();
+        }
+    }
 }

@@ -5,7 +5,7 @@
 #ifndef SERVER_CLIENT_H
 #define SERVER_CLIENT_H
 
-#include "../DB.h"
+#include "../Database.h"
 #include <system_error>
 #include <sstream>
 

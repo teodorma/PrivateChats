@@ -9,6 +9,7 @@
 #include <atomic>
 #include <mutex>
 #include <map>
+#include <json/value.h>
 
 class Server;
 
@@ -18,9 +19,13 @@ public:
     void operator()();
 
 private:
+    std::string KEY;
     int client_socket;
     Server &server;
     void handleClient();
+    bool readFromSocket(char (&buff)[4096], int& n);
+
+    void addKey(Json::Value &response);
 };
 
 #endif // WORKER_H

@@ -1,18 +1,14 @@
-//
-// Created by maciucateodor on 7/24/24.
-//
-
 #include "Client.h"
 
 std::istringstream Client::Register(const std::string& PHONE, const std::string& NAME, const std::string& KEY) {
-    std::lock_guard<std::mutex> guard(DB::db_mutex);
+    std::lock_guard<std::mutex> guard(Database::db_mutex);
 
     std::string sql = "INSERT INTO client (phone_number, name, key) VALUES (?, ?, ?);";
     sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(DB::DataBase, sql.c_str(), -1, &stmt, nullptr);
+    int rc = sqlite3_prepare_v2(Database::DataBase, sql.c_str(), -1, &stmt, nullptr);
 
     if (rc != SQLITE_OK) {
-        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(DB::DataBase) << std::endl;
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(Database::DataBase) << std::endl;
         return std::istringstream(R"({"RESPONSE":"FAILURE"})");
     }
     sqlite3_bind_text(stmt, 1, PHONE.c_str(), -1, SQLITE_TRANSIENT);
@@ -21,21 +17,22 @@ std::istringstream Client::Register(const std::string& PHONE, const std::string&
 
     rc = sqlite3_step(stmt);
     if (rc != SQLITE_DONE) {
-        std::cerr << "Failed to insert data: " << sqlite3_errmsg(DB::DataBase) << std::endl;
+        std::cerr << "Failed to insert data: " << sqlite3_errmsg(Database::DataBase) << std::endl;
         sqlite3_finalize(stmt);
         return std::istringstream(R"({"RESPONSE":"FAILURE"})");
     }
 
     sqlite3_finalize(stmt);
-    return std::istringstream(R"({"RESPONSE":"REGISTER_SUCCESS", "KEY":")" + DB::N.get_str(16) + R"("})");
+    return std::istringstream(R"({"RESPONSE":"REGISTER_SUCCESS", "KEY":"("})");
 }
+
 
 
 std::istringstream Client::StoreMessage(const std::string& PHONE, const std::string& JSON) {
     const char* sql = "INSERT INTO message_queue (client_phone_number, message) VALUES (?, ?);";
 
     sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(DB::DataBase, sql, -1, &stmt, nullptr);
+    int rc = sqlite3_prepare_v2(Database::DataBase, sql, -1, &stmt, nullptr);
     if (rc != SQLITE_OK) {
         return std::istringstream(R"({"RESPONSE":"ERROR_PREPARING_STATEMENT"})");
     }
@@ -54,20 +51,21 @@ std::istringstream Client::StoreMessage(const std::string& PHONE, const std::str
 }
 
 
+
 std::istringstream Client::Get_User_Key(const std::string& PHONE) {
-    std::lock_guard<std::mutex> guard(DB::db_mutex);
+    std::lock_guard<std::mutex> guard(Database::db_mutex);
     const char* sql = "SELECT key FROM client WHERE phone_number = ?;";
     int rc;
     sqlite3_stmt* stmt;
-    rc = sqlite3_prepare_v2(DB::DataBase, sql, -1, &stmt, nullptr);
+    rc = sqlite3_prepare_v2(Database::DataBase, sql, -1, &stmt, nullptr);
     if (rc != SQLITE_OK) {
-        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(DB::DataBase) << std::endl;
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(Database::DataBase) << std::endl;
         return std::istringstream(R"({"RESPONSE":"FAILURE", "PHONE":")" + PHONE + R"(", "KEY":""})");
     }
 
     rc = sqlite3_bind_text(stmt, 1, PHONE.c_str(), -1, SQLITE_TRANSIENT);
     if (rc != SQLITE_OK) {
-        std::cerr << "Failed to bind value: " << sqlite3_errmsg(DB::DataBase) << std::endl;
+        std::cerr << "Failed to bind value: " << sqlite3_errmsg(Database::DataBase) << std::endl;
         sqlite3_finalize(stmt);
         return std::istringstream(R"({"RESPONSE":"FAILURE", "PHONE":")" + PHONE + R"(", "KEY":""})");
     }
@@ -75,17 +73,17 @@ std::istringstream Client::Get_User_Key(const std::string& PHONE) {
     rc = sqlite3_step(stmt);
     std::ostringstream oss;
     if (rc == SQLITE_ROW) {
-        const unsigned char* keyText = sqlite3_column_text(stmt, 0); // Correct column index for 'key'
+        const unsigned char* keyText = sqlite3_column_text(stmt, 0);
         if (keyText) {
             std::string keyStr(reinterpret_cast<const char*>(keyText));
             oss << R"({"RESPONSE":"SUCCESS", "PHONE":")" << PHONE << R"(", "KEY":")" << keyStr << R"("})";
         } else {
-            std::cerr << "No key text found: " << sqlite3_errmsg(DB::DataBase) << std::endl;
+            std::cerr << "No key text found: " << sqlite3_errmsg(Database::DataBase) << std::endl;
             sqlite3_finalize(stmt);
             return std::istringstream(R"({"RESPONSE":"NO_DATA", "PHONE":")" + PHONE + R"(", "KEY":""})");
         }
     } else {
-        std::cerr << "No data found: " << sqlite3_errmsg(DB::DataBase) << std::endl;
+        std::cerr << "No data found: " << sqlite3_errmsg(Database::DataBase) << std::endl;
         sqlite3_finalize(stmt);
         return std::istringstream(R"({"RESPONSE":"NO_DATA", "PHONE":")" + PHONE + R"(", "KEY":""})");
     }
@@ -95,19 +93,20 @@ std::istringstream Client::Get_User_Key(const std::string& PHONE) {
 }
 
 
+
 std::istringstream Client::Get_Messages(const std::string& PHONE, std::vector<std::string>& messages) {
     const char* sql = "SELECT message FROM message_queue WHERE client_phone_number = ?";
     sqlite3_stmt* stmt;
-    int rc = sqlite3_prepare_v2(DB::DataBase, sql, -1, &stmt, nullptr);
+    int rc = sqlite3_prepare_v2(Database::DataBase, sql, -1, &stmt, nullptr);
 
     if (rc != SQLITE_OK) {
-        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(DB::DataBase) << std::endl;
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(Database::DataBase) << std::endl;
         return std::istringstream(R"({"RESPONSE":"FAILURE"})");
     }
 
     rc = sqlite3_bind_text(stmt, 1, PHONE.c_str(), -1, SQLITE_TRANSIENT);
     if (rc != SQLITE_OK) {
-        std::cerr << "Failed to bind value: " << sqlite3_errmsg(DB::DataBase) << std::endl;
+        std::cerr << "Failed to bind value: " << sqlite3_errmsg(Database::DataBase) << std::endl;
         sqlite3_finalize(stmt);
         return std::istringstream(R"({"RESPONSE":"FAILURE"})");
     }
@@ -122,7 +121,7 @@ std::istringstream Client::Get_Messages(const std::string& PHONE, std::vector<st
     }
 
     if (rc != SQLITE_DONE) {
-        std::cerr << "Failed to execute query: " << sqlite3_errmsg(DB::DataBase) << std::endl;
+        std::cerr << "Failed to execute query: " << sqlite3_errmsg(Database::DataBase) << std::endl;
         sqlite3_finalize(stmt);
         return std::istringstream(R"({"RESPONSE":"FAILURE"})");
     }
@@ -142,16 +141,16 @@ std::istringstream Client::lookUp(const std::string& PHONE) {
     const char* sql = "SELECT EXISTS(SELECT 1 FROM client WHERE phone_number = ?);";
     int rc;
     sqlite3_stmt* stmt;
-    rc = sqlite3_prepare_v2(DB::DataBase, sql, -1, &stmt, nullptr);
+    rc = sqlite3_prepare_v2(Database::DataBase, sql, -1, &stmt, nullptr);
 
     if (rc != SQLITE_OK) {
-        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(DB::DataBase) << std::endl;
+        std::cerr << "Failed to prepare statement: " << sqlite3_errmsg(Database::DataBase) << std::endl;
         return std::istringstream(R"({"RESPONSE":"FAILURE"})");
     }
 
     rc = sqlite3_bind_text(stmt, 1, PHONE.c_str(), -1, SQLITE_TRANSIENT);
     if (rc != SQLITE_OK) {
-        std::cerr << "Failed to bind value: " << sqlite3_errmsg(DB::DataBase) << std::endl;
+        std::cerr << "Failed to bind value: " << sqlite3_errmsg(Database::DataBase) << std::endl;
         sqlite3_finalize(stmt);
         return std::istringstream(R"({"RESPONSE":"FAILURE"})");
     }
@@ -165,5 +164,7 @@ std::istringstream Client::lookUp(const std::string& PHONE) {
 
     return std::istringstream(R"({"RESPONSE":"SUCCESS"})");
 }
+
+
 
 Client::~Client() = default;

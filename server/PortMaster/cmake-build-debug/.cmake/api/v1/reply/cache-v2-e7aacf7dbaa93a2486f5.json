@@ -151,10 +151,10 @@
 				},
 				{
 					"name" : "HELPSTRING",
-					"value" : "CXX compiler"
+					"value" : "No help, variable specified on the command line."
 				}
 			],
-			"type" : "STRING",
+			"type" : "UNINITIALIZED",
 			"value" : "/usr/bin/g++"
 		},
 		{
@@ -279,10 +279,10 @@
 				},
 				{
 					"name" : "HELPSTRING",
-					"value" : "C compiler"
+					"value" : "No help, variable specified on the command line."
 				}
 			],
-			"type" : "STRING",
+			"type" : "UNINITIALIZED",
 			"value" : "/usr/bin/gcc"
 		},
 		{
@@ -1151,7 +1151,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "[/usr/lib64/libcrypto.so][/usr/include][c ][v3.1.1()]"
+			"value" : "[/usr/lib64/libcrypto.so][/usr/include][c ][v3.1.4()]"
 		},
 		{
 			"name" : "FIND_PACKAGE_MESSAGE_DETAILS_PkgConfig",

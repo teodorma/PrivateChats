@@ -30,13 +30,16 @@ include_directories(${ZLIB_INCLUDE_DIRS})
 # Add executable
 add_executable(Server
         main.cpp
-        DB/DB.cpp
+        DB/Database.cpp
         Requests/Requests.cpp
         Server/Server.cpp
         DB/Encryption/Encryption.cpp
         DB/Operations/Admin.cpp
         DB/Operations/Client.cpp
         Server/Worker.cpp
+        DB/Encryption/RSA.cpp
+        DB/Encryption/AES.h
+        DB/Encryption/AES.cpp
 )
 
 # Link libraries

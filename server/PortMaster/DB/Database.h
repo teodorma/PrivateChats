@@ -1,9 +1,5 @@
-//
-// Created by maciucateodor on 6/24/24.
-//
-
-#ifndef SERVER_DB_H
-#define SERVER_DB_H
+#ifndef SERVER_DATABASE_H
+#define SERVER_DATABASE_H
 #define DATABASE_NAME "DBSQLITE.db"
 
 
@@ -16,42 +12,46 @@
 #include <json/json.h>
 #include "sqlite3.h"
 #include "Encryption/Encryption.h"
+#include "Encryption/RSA.h"
 #include "Operations/Admin.h"
 #include "Operations/Client.h"
 #include "../Requests/Requests.h"
 
-class DB : Encryption{
+
+class Database : Encryption{
 private:
-    static mpz_class P;
-    static mpz_class Q;
-    static mpz_class N;
-    static mpz_class D;
-    static mpz_class E;
-    static int KEY_LENGTH;
     static std::string PASSWORD;
     static std::mutex db_mutex;
+    static Database* instancePtr;
+    Database(){
+        std::ifstream file(DATABASE_NAME);
+        if(!file){
+            setPassword();
+            createDatabase();
+            createTables();
+        }
+        else{
 
-
+        }
+    };
 public:
     static sqlite3 *DataBase;
-    explicit DB();
-    DB(const DB &obj) = delete;
-    ~DB();
 
+    Database(const Database &obj) = delete;
+
+    static Database* getInstance();
     friend class Admin;
     friend class Client;
     friend class Requests;
 
-    static void createTables();
     static void createDatabase();
-    static bool isDatabaseInitiated();
-    static void setKeys();
-    static void setPassword();
-
-    static bool passCheck(const std::string& password);
-    static bool setRSAParameters();
-
+    static void createTables();
     static void openDatabase();
+
+    void setPassword();
+    static bool passCheck(const std::string& password);
+
+    ~Database();
 };
 
-#endif //SERVER_DB_H
+#endif //SERVER_DATABASE_H

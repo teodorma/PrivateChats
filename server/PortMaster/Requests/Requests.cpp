@@ -1,40 +1,23 @@
 #include "Requests.h"
-#include <zlib.h>
+Requests::Requests(const Json::Value &Request, Server &server, int client_socket, const std::string& KEY)
+: Request(Request), server(server), client_socket(client_socket), KEY(KEY) {
+    std::cout << "Decrypted data: " << Request.asString() << std::endl;
 
-Requests::Requests(std::istringstream& data, Server& server, int client_socket) : server(server), client_socket(client_socket) {
-    std::cout << std::endl;
-    std::string dataStr = data.str();
-    std::cout << "Received data: " << dataStr;
-    if (isUpdateRequest(dataStr)) {
-        std::istringstream ss(dataStr);
-        ss >> Request;
-    } else {
-        std::string decryptedData = decrypt(dataStr, DB::D, DB::N);
-        std::cout << "Decrypted data: " << decryptedData << std::endl;
-
-        std::istringstream ss(decryptedData);
-        ss >> Request;
-    }
+    RECIPIENT_PHONE = Request["RECIPIENT_PHONE"].asString();
+    PHONE = Request["PHONE"].asString();
+    NAME = Request["NAME"].asString();
+    PASSWORD = Request["PASSWORD"].asString();
+    TYPE = Request["TYPE"].asString();
 }
 
-bool Requests::isUpdateRequest(const std::string& s) {
-    Json::Value root;
-    Json::CharReaderBuilder readerBuilder;
-    std::string errs;
-    std::istringstream ss(s);
-    if (Json::parseFromStream(readerBuilder, ss, &root, &errs)) {
-        return root.isObject() && root.isMember("TYPE") && root["TYPE"].asString() == "REGISTER";
-    } else {
-        return false;
-    }
-}
 
-std::vector<std::string> Requests::Process() {
+
+std::string Requests::Process() {
     Json::Value JSON;
     Json::FastWriter WRITER;
-    switch (getType(Request)) {
+    switch (getType()) {
         case REGISTER: {
-            server.ConnectClient(Request["PHONE"].asString(), client_socket);
+            server.ConnectClient(Request["PHONE"].asString(), KEY, client_socket);
             Client::Register(Request["PHONE"].asString(),
                              Request["NAME"].asString(),
                              Request["KEY"].asString()) >> JSON;
@@ -43,52 +26,36 @@ std::vector<std::string> Requests::Process() {
         case CONNECT: {
             Client::lookUp(Request["PHONE"].asString()) >> JSON;
             if (JSON["RESPONSE"].asString() == "SUCCESS"){
-                server.ConnectClient(Request["PHONE"].asString(), client_socket);
+                server.ConnectClient(Request["PHONE"].asString(), KEY, client_socket);
             }
             break;
         }
         case DELETE: {
-            Admin::Delete(Request["PHONE"].asString(),
-                          Request["PASSWORD"].asString()) >> JSON;
+            Admin::Delete(PHONE, PASSWORD) >> JSON;
             break;
         }
         case ALL_DATA: {
-            Admin::AllData(Request["PASSWORD"].asString()) >> JSON;
+            Admin::AllData(PASSWORD) >> JSON;
             break;
         }
         case PURGE: {
-            Admin::Purge(Request["PASSWORD"].asString()) >> JSON;
-            break;
-        }
-        case GET_USER_KEY: {
-            Client::Get_User_Key(Request["RECIPIENT_PHONE"].asString()) >> JSON;
+            Admin::Purge(PASSWORD) >> JSON;
             break;
         }
         case GET_MESSAGES: {
             std::vector<std::string> messages;
-            Client::Get_Messages(Request["RECIPIENT_PHONE"].asString(), messages) >> JSON;
+            Client::Get_Messages(RECIPIENT_PHONE, messages) >> JSON;
 
-            if(!messages.empty()){
-                Json::Value KEY_JSON;
-                Client::Get_User_Key(Request["RECIPIENT_PHONE"].asString()) >> KEY_JSON;
-                mpz_class key;
-                key.set_str(KEY_JSON["KEY"].asString(), 16);
-
-                std::cout << key << std::endl;
-                for (const auto &chunk : messages) {
-                    server.SendMessage(Request["RECIPIENT_PHONE"].asString(), encrypt(chunk, DB::E, key));
-                }
+            for (const auto &message : messages) {
+                server.SendMessage(RECIPIENT_PHONE, message);
             }
             break;
         }
+
         case MESSAGE: {
-            Json::Value KEY_JSON;
-            Client::Get_User_Key(Request["RECIPIENT_PHONE"].asString()) >> KEY_JSON;
-            mpz_class key;
-            key.set_str(KEY_JSON["KEY"].asString(), 16);
-            auto request = WRITER.write(Request);
-            if (!server.SendMessage(Request["RECIPIENT_PHONE"].asString(), encrypt(request, DB::E, key))) {
-                Client::StoreMessage(Request["RECIPIENT_PHONE"].asString(), request) >> JSON;
+            auto request = AES::encrypt(KEY , WRITER.write(Request));
+            if (!server.SendMessage(RECIPIENT_PHONE, request)) {
+                Client::StoreMessage(RECIPIENT_PHONE, request) >> JSON;
             } else {
                 JSON["RESPONSE"] = "MESSAGE_SENT";
             }
@@ -99,41 +66,15 @@ std::vector<std::string> Requests::Process() {
             break;
         }
     }
-    Json::Value KEY;
-    Client::Get_User_Key(Request["PHONE"].asString()) >> KEY;
-    mpz_class ClientPublicKey;
-    ClientPublicKey.set_str(KEY["KEY"].asString(), 16);
-
-    auto split_string_into_chunks = [](const std::string& str, size_t chunk_size) {
-        std::vector<std::string> chunks;
-        for (size_t i = 0; i < str.length(); i += chunk_size) {
-            chunks.push_back(str.substr(i, chunk_size));
-        }
-        return chunks;
-    };
 
     std::string responseStr = WRITER.write(JSON);
-    size_t chunk_size = 190;
-    std::vector<std::string> chunks = split_string_into_chunks(responseStr, chunk_size);
-
-    std::vector<std::string> RESPONSE;
-
-    for (size_t i = 0; i < chunks.size(); ++i) {
-        Json::Value chunkJson;
-        chunkJson["CHUNK_NUMBER"] = static_cast<int>(i);
-        chunkJson["NUMBER_OF_CHUNKS"] = chunks.size();
-        chunkJson["CHUNK"] = chunks[i];
-        std::string chunkStr = WRITER.write(chunkJson);
-        std::string encryptedChunk = encrypt(chunkStr, DB::E, ClientPublicKey);
-        RESPONSE.push_back(encryptedChunk);
-    }
-
-    return RESPONSE;
+    return responseStr;
 }
 
 
-Requests::TYPES Requests::getType(const Json::Value& STR) {
-    std::string types = STR["TYPE"].asString();
+
+Requests::TYPES Requests::getType() {
+    std::string types = TYPE;
 
     if (types == "REGISTER") return REGISTER;
     if (types == "DELETE") return DELETE;
