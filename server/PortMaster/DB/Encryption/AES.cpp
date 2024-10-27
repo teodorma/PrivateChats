@@ -1,6 +1,7 @@
 #include "AES.h"
 
 std::string AES::encrypt(const std::string& aes_key, std::string plaintext) {
+    std::cout << aes_key.size() << " " << aes_key << std::endl;
     if (aes_key.size() != 32) {
         throw std::invalid_argument("Invalid AES key length. Must be 32 bytes for AES-256.");
     }

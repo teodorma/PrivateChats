@@ -38,6 +38,7 @@ std::string Encryption::Base64_encode(const std::string& input) {
     return output;
 }
 
+
 std::string Encryption::Base64_decode(const std::string& input) {
     BIO *bio, *b64;
     int decodeLen = input.size();

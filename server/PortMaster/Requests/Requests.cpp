@@ -34,6 +34,9 @@ std::string Requests::Process() {
             Admin::Delete(PHONE, PASSWORD) >> JSON;
             break;
         }
+        case GET_USER_KEY: {
+            Client::Get_User_Key(PHONE);
+        }
         case ALL_DATA: {
             Admin::AllData(PASSWORD) >> JSON;
             break;

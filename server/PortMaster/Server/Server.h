@@ -14,7 +14,7 @@
 #include <condition_variable>
 #include "Worker.h"
 
-class Server {
+class Server : Encryption{
 public:
     explicit Server(int PORT);
     ~Server();

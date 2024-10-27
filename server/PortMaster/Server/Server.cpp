@@ -28,8 +28,6 @@ Server::Server(int PORT) {
     }
 }
 
-
-
 void Server::run() {
     if (listen(SOCKET, 128) == -1) {
         std::cerr << "Error in listen function: " << std::strerror(errno) << std::endl;
@@ -54,8 +52,6 @@ void Server::run() {
     }
 }
 
-
-
 void Server::acceptConnections() {
     while (true) {
         socklen_t address_length = sizeof(SERVER_ADDR);
@@ -65,16 +61,13 @@ void Server::acceptConnections() {
         if (client_socket == -1) {
             std::cerr << "Error in accept function: " << std::strerror(errno) << std::endl;
             continue;
-        }
-        else{
+        } else {
             std::lock_guard<std::mutex> lock(cv_m);
             client_sockets.push_back(client_socket);
         }
         cv.notify_one();
     }
 }
-
-
 
 void Server::ConnectClient(const std::string &phone_number, const std::string &aes_key, int client_socket) {
     std::lock_guard<std::mutex> lock(clients_mutex);
@@ -126,7 +119,7 @@ void Server::removeClient(const int client_sock) {
 
 
 void Server::SendResponse(int client_socket, const std::string &response) {
-    std::string full_response = response + "\n";
+    std::string full_response = Base64_encode(response) + "\n";
     ssize_t sent = send(client_socket, full_response.c_str(), full_response.size(), 0);
     if (sent == -1) {
         std::cerr << "Failed to send response to client socket " << client_socket << ": " << strerror(errno) << std::endl;
