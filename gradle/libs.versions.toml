@@ -26,5 +26,5 @@ navigation-ui = { group = "androidx.navigation", name = "navigation-ui", version
 recyclerview = { group = "androidx.recyclerview", name = "recyclerview", version.ref = "recyclerview" }
 
 [plugins]
-android-application = { id = "com.android.application", version.ref = "agp" }
-
+android-application = { id = "com.android.application", version = "8.0.0" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version = "1.8.0" }
